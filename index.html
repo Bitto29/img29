@@ -662,7 +662,7 @@
   </div>
 </div>
 
-<script src="https://accounts.google.com/gsi/client" async defer onload="window.__img29GisLoaded=true"></script>
+<script src="https://accounts.google.com/gsi/client" async defer onload="window.__img29GisLoaded=true; initGoogleTokenClient()"></script>
 <script>
 (function(){
   "use strict";
@@ -807,6 +807,7 @@
   const GOOGLE_PHOTOS_SCOPE = 'https://www.googleapis.com/auth/photospicker.mediaitems.readonly';
   let googleAccessToken = null;
   let googlePickerSessionId = null;
+  let googleTokenClient = null;
 
   let cropRect = null; // {x,y,w,h} in canvas pixel space
   let cropDragStart = null;
@@ -1587,143 +1588,146 @@
     throw new Error('Google sign-in could not load. Check your internet connection and allow accounts.google.com.');
   }
 
-  function requestGoogleAccessToken(){
-    return new Promise((resolve, reject)=>{
-      let done = false;
-      const finish = (fn, value)=>{
-        if(done) return;
-        done = true;
-        fn(value);
-      };
+  // Keep the OAuth request directly inside the button's click handler.
+  // Google Identity Services can reject popup creation when requestAccessToken()
+  // is reached through an async call chain, even if that chain started from a click.
+  function initGoogleTokenClient(){
+    if(!window.google?.accounts?.oauth2) return false;
+    if(googleTokenClient) return true;
 
-      const tokenClient = google.accounts.oauth2.initTokenClient({
-        client_id:GOOGLE_OAUTH_CLIENT_ID,
-        scope:GOOGLE_PHOTOS_SCOPE,
-        callback:response=>{
-          if(response?.access_token){
-            finish(resolve, response.access_token);
-          }else{
-            finish(reject, new Error(response?.error_description || response?.error || 'Google authorization failed.'));
-          }
-        },
-        error_callback:error=>{
-          const type = error?.type || '';
-          if(type === 'popup_failed_to_open'){
-            finish(reject, new Error('Google sign-in popup was blocked. Allow pop-ups for this site in your browser, then click Connect & Pick again.'));
-          }else if(type === 'popup_closed'){
-            finish(reject, new Error('Google sign-in was closed before permission was granted.'));
-          }else{
-            finish(reject, new Error(error?.message || error?.type || 'Google authorization failed.'));
-          }
+    googleTokenClient = google.accounts.oauth2.initTokenClient({
+      client_id: GOOGLE_OAUTH_CLIENT_ID,
+      scope: GOOGLE_PHOTOS_SCOPE,
+      callback: ()=>{},
+      error_callback:error=>{
+        const type = error?.type || '';
+        if(type === 'popup_failed_to_open'){
+          setGoogleStatus('Google could not open the sign-in window. Chrome is blocking the OAuth popup. Allow pop-ups for this site, then click Connect & Pick again.', true);
+          toast('Google sign-in popup was blocked');
+        }else if(type === 'popup_closed'){
+          setGoogleStatus('Google sign-in was closed before permission was granted.', true);
+          toast('Google sign-in closed');
+        }else{
+          const message = error?.message || error?.type || 'Google authorization failed.';
+          setGoogleStatus(message, true);
+          toast(message);
         }
-      });
-
-      // IMPORTANT: this must run directly from the user click when GIS is already loaded.
-      // Waiting here would lose the browser's user-activation permission for the OAuth popup.
-      tokenClient.requestAccessToken({prompt:'consent'});
+        googlePhotosStartBtn.disabled = false;
+      }
     });
+    return true;
   }
 
-  async function startGooglePhotosImport(){
-    googlePhotosStartBtn.disabled = true;
+  async function continueGooglePhotosImport(accessToken){
+    googleAccessToken = accessToken;
+    setGoogleStatus('Creating a Google Photos picker…');
 
-    try{
-      // Do not await before requestAccessToken if GIS is already ready. OAuth popup
-      // creation needs the original click's user activation.
-      if(!window.google?.accounts?.oauth2){
-        googlePhotosStartBtn.disabled = false;
-        setGoogleStatus('Google sign-in is still loading. Please click Connect & Pick again in a moment.', true);
-        await waitForGoogleIdentityServices();
-        return;
-      }
+    const session = await createGooglePhotosSession();
+    googlePickerSessionId = session.id;
 
-      setGoogleStatus('Requesting Google Photos permission…');
-      googleAccessToken = await requestGoogleAccessToken();
+    // The picker is opened only from a real user click. If the browser blocks
+    // this new tab, keep the URL and provide another real click target.
+    const pickerUrl = session.pickerUri + '/autoclose';
+    const pickerWindow = window.open(pickerUrl, '_blank', 'noopener,noreferrer');
 
-      setGoogleStatus('Creating a Google Photos picker…');
-      const session = await createGooglePhotosSession();
-      googlePickerSessionId = session.id;
-
-      // Picker opening happens after async API calls, so browsers may block it as a popup.
-      // First try the normal new-tab flow. If blocked, keep the session alive and give the
-      // user a real click target, which restores user activation.
-      const pickerUrl = session.pickerUri + '/autoclose';
-      const pickerWindow = window.open(pickerUrl, '_blank', 'noopener,noreferrer');
-
-      if(!pickerWindow){
-        setGoogleStatus('Google Photos is ready. Click the button below to open the picker.', false);
-        googlePhotosStartBtn.textContent = 'Open Google Photos';
-        googlePhotosStartBtn.disabled = false;
-        googlePhotosStartBtn.dataset.pickerUrl = pickerUrl;
-        return;
-      }
-
-      googlePhotosStartBtn.dataset.pickerUrl = '';
-      googlePhotosStartBtn.textContent = 'Connect & Pick';
-      closeGooglePhotosModal();
-      toast('Pick a photo in Google Photos, then return here.');
-
-      const completed = await waitForGooglePhotosSelection(session);
-      const items = await getPickedGooglePhotos(completed.id);
-
-      if(!items.length){
-        throw new Error('No images were selected. Please choose at least one photo.');
-      }
-
-      setGoogleStatus(`Importing ${items.length} selected image${items.length === 1 ? '' : 's'}…`);
-
-      const imported = [];
-      for(let i = 0; i < items.length; i++){
-        const item = items[i];
-        const baseUrl = item?.mediaFile?.baseUrl;
-        if(!baseUrl) continue;
-
-        try{
-          const res = await fetch(baseUrl + '=d', {
-            headers:{ 'Authorization':'Bearer ' + googleAccessToken }
-          });
-          if(!res.ok) continue;
-
-          const blob = await res.blob();
-          imported.push(new File(
-            [blob],
-            `google-photos-${Date.now()}-${i + 1}.jpg`,
-            { type:blob.type || 'image/jpeg' }
-          ));
-        }catch(_){ }
-      }
-
-      if(!imported.length){
-        throw new Error('Could not download the selected Google Photos images.');
-      }
-
-      await addFilesToWorkspace(imported);
-      toast(`${imported.length} Google Photos image${imported.length === 1 ? '' : 's'} imported`);
-
-    }catch(error){
-      console.error(error);
-      setGoogleStatus(error?.message || 'Google Photos import failed.', true);
-      toast(error?.message || 'Google Photos import failed.');
-    }finally{
-      if(!googlePhotosStartBtn.dataset.pickerUrl){
-        googlePhotosStartBtn.disabled = false;
-      }
-      if(googlePhotosStartBtn.dataset.pickerUrl){
-        googlePhotosStartBtn.disabled = false;
-      }
+    if(!pickerWindow){
+      setGoogleStatus('Google Photos is ready. Click Open Google Photos below.', false);
+      googlePhotosStartBtn.textContent = 'Open Google Photos';
+      googlePhotosStartBtn.disabled = false;
+      googlePhotosStartBtn.dataset.pickerUrl = pickerUrl;
+      return;
     }
+
+    googlePhotosStartBtn.dataset.pickerUrl = '';
+    googlePhotosStartBtn.textContent = 'Connect & Pick';
+    closeGooglePhotosModal();
+    toast('Pick a photo in Google Photos, then return here.');
+
+    const completed = await waitForGooglePhotosSelection(session);
+    const items = await getPickedGooglePhotos(completed.id);
+
+    if(!items.length){
+      throw new Error('No images were selected. Please choose at least one photo.');
+    }
+
+    setGoogleStatus(`Importing ${items.length} selected image${items.length === 1 ? '' : 's'}…`);
+
+    const imported = [];
+    for(let i = 0; i < items.length; i++){
+      const item = items[i];
+      const baseUrl = item?.mediaFile?.baseUrl;
+      if(!baseUrl) continue;
+
+      try{
+        const res = await fetch(baseUrl + '=d', {
+          headers:{ 'Authorization':'Bearer ' + googleAccessToken }
+        });
+        if(!res.ok) continue;
+
+        const blob = await res.blob();
+        imported.push(new File(
+          [blob],
+          `google-photos-${Date.now()}-${i + 1}.jpg`,
+          { type:blob.type || 'image/jpeg' }
+        ));
+      }catch(_){ }
+    }
+
+    if(!imported.length){
+      throw new Error('Could not download the selected Google Photos images.');
+    }
+
+    await addFilesToWorkspace(imported);
+    toast(`${imported.length} Google Photos image${imported.length === 1 ? '' : 's'} imported`);
+  }
+
+  // This function may be async for the API work after OAuth, but OAuth itself
+  // is always requested by the synchronous click handler below.
+  function startGooglePhotosImport(){
+    if(!initGoogleTokenClient()){
+      setGoogleStatus('Google sign-in is still loading. Please wait a moment, then click Connect & Pick again.', true);
+      return;
+    }
+
+    googlePhotosStartBtn.disabled = true;
+    setGoogleStatus('Opening Google sign-in…');
+
+    googleTokenClient.callback = async response=>{
+      if(response?.access_token){
+        try{
+          await continueGooglePhotosImport(response.access_token);
+        }catch(error){
+          console.error(error);
+          setGoogleStatus(error?.message || 'Google Photos import failed.', true);
+          toast(error?.message || 'Google Photos import failed.');
+          googlePhotosStartBtn.dataset.pickerUrl = '';
+          googlePhotosStartBtn.textContent = 'Connect & Pick';
+          googlePhotosStartBtn.disabled = false;
+        }
+      }else{
+        const message = response?.error_description || response?.error || 'Google authorization failed.';
+        setGoogleStatus(message, true);
+        toast(message);
+        googlePhotosStartBtn.disabled = false;
+      }
+    };
+
+    // CRITICAL: this line executes synchronously in the button's click event.
+    // Do not await anything before it.
+    googleTokenClient.requestAccessToken({prompt: googleAccessToken ? '' : 'consent'});
   }
 
   googlePhotosBtn.addEventListener('click', openGooglePhotosModal);
   emptyGooglePhotosBtn.addEventListener('click', openGooglePhotosModal);
   googlePhotosCancelBtn.addEventListener('click', closeGooglePhotosModal);
 
-  googlePhotosStartBtn.addEventListener('click', async ()=>{
+  // Deliberately NOT async. OAuth must begin synchronously from this click.
+  googlePhotosStartBtn.addEventListener('click', ()=>{
     const pickerUrl = googlePhotosStartBtn.dataset.pickerUrl;
     if(pickerUrl){
       const w = window.open(pickerUrl, '_blank', 'noopener,noreferrer');
       if(!w){
-        setGoogleStatus('Your browser is still blocking pop-ups. Allow pop-ups for this site, then click Open Google Photos again.', true);
+        setGoogleStatus('Chrome is still blocking pop-ups. Allow pop-ups for this site, then click Open Google Photos again.', true);
         return;
       }
       googlePhotosStartBtn.dataset.pickerUrl = '';
@@ -1732,12 +1736,13 @@
       toast('Pick a photo in Google Photos, then return here.');
       return;
     }
-    await startGooglePhotosImport();
+    startGooglePhotosImport();
   });
 
   googlePhotosModal.addEventListener('click', event=>{
     if(event.target === googlePhotosModal) closeGooglePhotosModal();
   });
+
 
   function openCamera(){
     cameraModal.style.display = 'flex';
