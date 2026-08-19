@@ -3,7 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1">
-<title>Darkroom — local image editor</title>
+<title>img29 — image editor</title>
+<link rel="icon" type="image/png" href="https://i.postimg.cc/G38VXMMt/image.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
@@ -161,6 +162,11 @@
   @media(min-width:640px){ .brand .tagline{display:inline;} }
 
   .topbar-actions{display:flex; align-items:center; gap:8px;}
+  .ui-icon{width:15px;height:15px;display:block;flex:0 0 15px;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;fill:none;}
+  .icon-btn.compact .ui-icon{width:16px;height:16px;flex-basis:16px;}
+  .oauth-fixed{display:flex;flex-direction:column;gap:3px;margin:10px 0 12px;padding:10px 12px;border:1px solid var(--border);background:var(--bg-deep);border-radius:var(--radius);font-size:12px;}
+  .oauth-fixed strong{color:var(--text);font-size:12px;}
+  .oauth-fixed span{color:var(--text-faint);line-height:1.5;}
   .icon-btn{
     display:inline-flex; align-items:center; gap:6px;
     background:transparent;
@@ -416,23 +422,23 @@
 
 <div class="app">
   <header class="topbar">
-    <div class="brand"><span class="dot">◆</span>IMG29</div>
+    <div class="brand"><span class="dot">◆</span>IMG29<span class="tagline">// local image editor — nothing saved</span></div>
     <div class="topbar-actions">
       <div class="nav-group">
-        <button class="icon-btn compact" id="prevImageBtn" title="Previous image">‹</button>
+        <button class="icon-btn compact" id="prevImageBtn" title="Previous image"></button>
         <span class="image-counter" id="imageCounter">0 / 0</span>
-        <button class="icon-btn compact" id="nextImageBtn" title="Next image">›</button>
+        <button class="icon-btn compact" id="nextImageBtn" title="Next image"></button>
       </div>
       <div class="header-edit">
-        <button class="icon-btn compact" id="headerCropBtn" title="Crop">▭</button>
-        <button class="icon-btn compact" id="headerRotateBtn" title="Rotate right">↻</button>
-        <button class="icon-btn compact" id="headerAdjustBtn" title="Open adjustments">☼</button>
-        <button class="icon-btn compact" id="headerFullscreenBtn" title="Fullscreen">⛶</button>
+        <button class="icon-btn compact" id="headerCropBtn" title="Crop"></button>
+        <button class="icon-btn compact" id="headerRotateBtn" title="Rotate right"></button>
+        <button class="icon-btn compact" id="headerAdjustBtn" title="Open adjustments"></button>
+        <button class="icon-btn compact" id="headerFullscreenBtn" title="Fullscreen"></button>
       </div>
-      <button class="icon-btn" id="undoBtn" title="Undo">↺ Undo</button>
-      <button class="icon-btn" id="redoBtn" title="Redo">↻ Redo</button>
-      <button class="icon-btn" id="newBtn" title="Start over">✕ New</button>
-      <button class="icon-btn primary" id="downloadBtn" disabled>⤓ Export</button>
+      <button class="icon-btn" id="undoBtn" title="Undo"></button>
+      <button class="icon-btn" id="redoBtn" title="Redo"></button>
+      <button class="icon-btn" id="newBtn" title="Start over"></button>
+      <button class="icon-btn primary" id="downloadBtn" disabled></button>
     </div>
   </header>
 
@@ -443,12 +449,12 @@
         <summary>Open image</summary>
         <div class="section-body">
           <div class="row">
-            <button class="btn" id="uploadBtn">⇪ Single</button>
-            <button class="btn" id="bulkUploadBtn">⇪ Bulk</button>
-            <button class="btn" id="cameraBtn">◎ Camera</button>
+            <button class="btn" id="uploadBtn"></button>
+            <button class="btn" id="bulkUploadBtn"></button>
+            <button class="btn" id="cameraBtn"></button>
           </div>
           <div class="row">
-            <button class="btn full" id="googlePhotosBtn">▣ Google Photos</button>
+            <button class="btn full" id="googlePhotosBtn"></button>
           </div>
           <p class="hint bulk-note">Bulk lets you select multiple image files and edit them one at a time. Use the arrows, thumbnails, swipe, or ←/→ keys to move between images.</p>
           <p class="hint">Google Photos opens Google's picker so you can select a photo from your library, including photos available through shared content.</p>
@@ -481,7 +487,7 @@
             <input type="range" id="s-blur" min="0" max="12" value="0">
           </div>
           <div class="row">
-            <button class="btn" id="applyAdjustBtn">✓ Apply</button>
+            <button class="btn" id="applyAdjustBtn"></button>
             <button class="btn" id="resetAdjustBtn">Reset</button>
           </div>
         </div>
@@ -507,16 +513,16 @@
         <summary>Transform</summary>
         <div class="section-body">
           <div class="row">
-            <button class="btn" id="rotLeftBtn">⟲ Rotate L</button>
-            <button class="btn" id="rotRightBtn">⟳ Rotate R</button>
+            <button class="btn" id="rotLeftBtn"></button>
+            <button class="btn" id="rotRightBtn"></button>
           </div>
           <div class="row">
-            <button class="btn" id="flipHBtn">⇄ Flip H</button>
-            <button class="btn" id="flipVBtn">⇅ Flip V</button>
+            <button class="btn" id="flipHBtn"></button>
+            <button class="btn" id="flipVBtn"></button>
           </div>
           <hr style="border:none;border-top:1px solid var(--border); width:100%; margin:2px 0;">
           <div class="row">
-            <button class="btn" id="cropModeBtn">▭ Crop</button>
+            <button class="btn" id="cropModeBtn"></button>
             <button class="btn small" id="cropApplyBtn" disabled>Apply</button>
             <button class="btn small" id="cropCancelBtn" disabled>Cancel</button>
           </div>
@@ -541,7 +547,7 @@
         <summary>Draw</summary>
         <div class="section-body">
           <div class="row">
-            <button class="btn" id="drawModeBtn">✎ Brush</button>
+            <button class="btn" id="drawModeBtn"></button>
             <input type="color" id="drawColor" value="#e8a13d">
           </div>
           <div>
@@ -566,7 +572,7 @@
               <input type="color" id="textColor" value="#f2ede4">
             </div>
           </div>
-          <button class="btn full" id="textModeBtn">Aa Place text</button>
+          <button class="btn full" id="textModeBtn"></button>
         </div>
       </details>
 
@@ -579,7 +585,7 @@
               <option value="jpeg">JPEG</option>
             </select>
           </div>
-          <button class="btn full primary" id="downloadBtn2" disabled style="background:var(--accent); color:#1c1204; border-color:var(--accent); font-weight:600;">⤓ Download image</button>
+          <button class="btn full primary" id="downloadBtn2" disabled style="background:var(--accent); color:#1c1204; border-color:var(--accent); font-weight:600;"></button>
         </div>
       </details>
 
@@ -594,10 +600,10 @@
         <h2>Nothing loaded yet</h2>
         <p>Drop an image here, paste one from your clipboard, upload a file, or shoot straight from your camera. Everything stays in this tab — closing it clears it for good.</p>
         <div class="actions">
-          <button class="icon-btn primary" id="emptyUploadBtn">⇪ Upload image</button>
-          <button class="icon-btn" id="emptyBulkUploadBtn">⇪ Bulk images</button>
-          <button class="icon-btn" id="emptyGooglePhotosBtn">▣ Google Photos</button>
-          <button class="icon-btn" id="emptyCameraBtn">◎ Use camera</button>
+          <button class="icon-btn primary" id="emptyUploadBtn"></button>
+          <button class="icon-btn" id="emptyBulkUploadBtn"></button>
+          <button class="icon-btn" id="emptyGooglePhotosBtn"></button>
+          <button class="icon-btn" id="emptyCameraBtn"></button>
         </div>
       </div>
 
@@ -607,8 +613,8 @@
       </div>
 
       <div class="multi-nav" id="multiNav" style="display:none;">
-        <button class="nav-arrow" id="stagePrevBtn" title="Previous image">‹</button>
-        <button class="nav-arrow" id="stageNextBtn" title="Next image">›</button>
+        <button class="nav-arrow" id="stagePrevBtn" title="Previous image"></button>
+        <button class="nav-arrow" id="stageNextBtn" title="Next image"></button>
       </div>
 
       <div class="thumbnail-strip" id="thumbnailStrip" style="display:none;"></div>
@@ -625,17 +631,10 @@
       Darkroom uses Google's official Photos Picker. After it opens, search for the shared album or photo you want and select one image.
     </p>
 
-    <div style="margin:10px 0 12px;">
-      <div class="field-label"><span>OAuth Web Client ID</span></div>
-      <input type="text" id="googleClientId"
-        placeholder="1234567890-abcdefghijklmnopqrstuvwxyz.apps.googleusercontent.com"
-        autocomplete="off">
+    <div class="oauth-fixed">
+      <strong>Google account connection</strong>
+      <span>Darkroom is preconfigured with its Google OAuth client. No Client ID entry is required.</span>
     </div>
-
-    <label class="chk" style="margin:8px 0 12px;">
-      <input type="checkbox" id="googleRememberClient" checked>
-      Remember this Client ID on this device
-    </label>
 
     <div id="googlePhotosStatus" class="hint" style="margin:8px 0 0;"></div>
 
@@ -657,7 +656,7 @@
     <h3>Camera</h3>
     <video id="camVideo" autoplay playsinline></video>
     <div class="modal-actions">
-      <button class="btn full" id="camCaptureBtn">◎ Capture</button>
+      <button class="btn full" id="camCaptureBtn"></button>
       <button class="btn full" id="camCancelBtn">Cancel</button>
     </div>
   </div>
@@ -667,6 +666,27 @@
 <script>
 (function(){
   "use strict";
+
+  const GOOGLE_OAUTH_CLIENT_ID = '1032222729570-k2sbf1qt303et87t13hv9qudc4vjnbv6.apps.googleusercontent.com';
+
+  function icon(name, label=''){
+    const paths = {
+      prev:'<path d="M15 18 9 12l6-6"/>', next:'<path d="m9 18 6-6-6-6"/>',
+      crop:'<path d="M6 2v4H2m20 16h-4v-4M18 6h4v4M6 18H2v-4"/><rect x="6" y="6" width="12" height="12" rx="1"/>',
+      rotate:'<path d="M20 11a8 8 0 0 0-14.7-3.9L3 10"/><path d="M3 5v5h5"/><path d="M4 13a8 8 0 0 0 14.7 3.9L21 14"/><path d="M21 19v-5h-5"/>',
+      adjust:'<path d="M4 6h16M7 12h10M10 18h4"/><circle cx="9" cy="6" r="2"/><circle cx="15" cy="12" r="2"/><circle cx="12" cy="18" r="2"/>',
+      fullscreen:'<path d="M8 3H3v5M16 3h5v5M21 16v5h-5M3 16v5h5"/>',
+      undo:'<path d="M9 14 4 9l5-5"/><path d="M4 9h9a7 7 0 0 1 7 7v1"/>',
+      redo:'<path d="m15 14 5-5-5-5"/><path d="M20 9h-9a7 7 0 0 0-7 7v1"/>',
+      close:'<path d="m6 6 12 12M18 6 6 18"/>', download:'<path d="M12 3v11"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/>',
+      upload:'<path d="M12 16V4"/><path d="m7 9 5-5 5 5"/><path d="M5 20h14"/>', camera:'<path d="M4 7h4l1.5-2h5L16 7h4v11H4z"/><circle cx="12" cy="12.5" r="3.2"/>',
+      photos:'<rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="8" cy="9" r="1.5"/><path d="m4 17 5-5 3 3 2-2 6 4"/>',
+      brush:'<path d="m14 4 6 6"/><path d="M5 19c2.5.5 4.5-.5 5.8-1.8L19 9l-6-6-8.2 8.2C3.5 12.5 2.5 15 3 17c.3 1 1 1.7 2 2Z"/><path d="M3 21c2.5-1 4.5-1 6 0"/>',
+      flipH:'<path d="M12 3v18"/><path d="m8 7-4 5 4 5"/><path d="m16 7 4 5-4 5"/>', flipV:'<path d="M3 12h18"/><path d="m7 8 5-4 5 4"/><path d="m7 16 5 4 5-4"/>',
+      text:'<path d="M5 5h14M12 5v14M8 19h8"/>', check:'<path d="m5 12 4 4L19 6"/>'
+    };
+    return `<svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">${paths[name]||''}</svg>${label?`<span>${label}</span>`:''}`;
+  }
 
   // ---------- element refs ----------
   const stage = document.getElementById('stage');
@@ -749,11 +769,18 @@
   const googlePhotosBtn = document.getElementById('googlePhotosBtn');
   const emptyGooglePhotosBtn = document.getElementById('emptyGooglePhotosBtn');
   const googlePhotosModal = document.getElementById('googlePhotosModal');
-  const googleClientIdInput = document.getElementById('googleClientId');
-  const googleRememberClient = document.getElementById('googleRememberClient');
   const googlePhotosStatus = document.getElementById('googlePhotosStatus');
   const googlePhotosStartBtn = document.getElementById('googlePhotosStartBtn');
   const googlePhotosCancelBtn = document.getElementById('googlePhotosCancelBtn');
+
+  const iconLabels = {
+    prevImageBtn:['prev',''], nextImageBtn:['next',''], headerCropBtn:['crop',''], headerRotateBtn:['rotate',''], headerAdjustBtn:['adjust',''], headerFullscreenBtn:['fullscreen',''],
+    undoBtn:['undo','Undo'], redoBtn:['redo','Redo'], newBtn:['close','New'], downloadBtn:['download','Export'], uploadBtn:['upload','Single'], bulkUploadBtn:['upload','Bulk'], cameraBtn:['camera','Camera'],
+    googlePhotosBtn:['photos','Google Photos'], rotLeftBtn:['rotate','Rotate L'], rotRightBtn:['rotate','Rotate R'], flipHBtn:['flipH','Flip H'], flipVBtn:['flipV','Flip V'], cropModeBtn:['crop','Crop'],
+    drawModeBtn:['brush','Brush'], textModeBtn:['text','Place text'], downloadBtn2:['download','Download image'], stagePrevBtn:['prev',''], stageNextBtn:['next',''], emptyUploadBtn:['upload','Upload image'],
+    emptyBulkUploadBtn:['upload','Bulk images'], emptyGooglePhotosBtn:['photos','Google Photos'], emptyCameraBtn:['camera','Use camera'], applyAdjustBtn:['check','Apply'], camCaptureBtn:['camera','Capture']
+  };
+  Object.entries(iconLabels).forEach(([id,spec])=>{ const el=document.getElementById(id); if(el) el.innerHTML=icon(spec[0],spec[1]); });
 
   // ---------- state ----------
   const MAX_DIM = 2400;
@@ -1439,9 +1466,7 @@
   }
 
   function openGooglePhotosModal(){
-    const saved = localStorage.getItem('darkroom.googleClientId');
-    if(saved) googleClientIdInput.value = saved;
-    setGoogleStatus('After Google Photos opens, search for the shared album/photo and select one image.');
+    setGoogleStatus('Google Photos is preconfigured. Connect your Google account, then choose an image.');
     googlePhotosModal.style.display = 'flex';
   }
 
@@ -1552,20 +1577,7 @@
   }
 
   async function startGooglePhotosImport(){
-    const clientId = googleClientIdInput.value.trim();
-
-    if(!clientId){
-      setGoogleStatus('Enter a Google OAuth Web Client ID first.', true);
-      googleClientIdInput.focus();
-      return;
-    }
-
-    if(googleRememberClient.checked){
-      localStorage.setItem('darkroom.googleClientId', clientId);
-    }else{
-      localStorage.removeItem('darkroom.googleClientId');
-    }
-
+    const clientId = GOOGLE_OAUTH_CLIENT_ID;
     googlePhotosStartBtn.disabled = true;
 
     try{
