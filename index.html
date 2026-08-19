@@ -633,7 +633,7 @@
 
     <div class="oauth-fixed">
       <strong>Google account connection</strong>
-      <span>Darkroom is preconfigured with its Google OAuth client. No Client ID entry is required.</span>
+      <span>Darkroom is preconfigured with its Google OAuth client. No Client ID entry is required. Allow pop-ups for this site when connecting your Google account.</span>
     </div>
 
     <div id="googlePhotosStatus" class="hint" style="margin:8px 0 0;"></div>
@@ -662,7 +662,7 @@
   </div>
 </div>
 
-<script src="https://accounts.google.com/gsi/client" async defer></script>
+<script src="https://accounts.google.com/gsi/client" async defer onload="window.__img29GisLoaded=true"></script>
 <script>
 (function(){
   "use strict";
@@ -1582,7 +1582,19 @@
 
     try{
       if(!window.google?.accounts?.oauth2){
-        throw new Error('Google sign-in is still loading. Please try again.');
+        setGoogleStatus('Loading Google sign-in…');
+        await new Promise((resolve, reject)=>{
+          const started = Date.now();
+          const timer = setInterval(()=>{
+            if(window.google?.accounts?.oauth2){
+              clearInterval(timer);
+              resolve();
+            }else if(Date.now() - started > 10000){
+              clearInterval(timer);
+              reject(new Error('Google sign-in could not load. Check your internet connection and allow accounts.google.com.'));
+            }
+          }, 50);
+        });
       }
 
       setGoogleStatus('Requesting Google Photos permission…');
@@ -1606,7 +1618,14 @@
           error_callback:error=>{
             if(done) return;
             done = true;
-            reject(new Error(error?.type || 'Google authorization popup failed.'));
+            const type = error?.type || '';
+            if(type === 'popup_failed_to_open'){
+              reject(new Error('Google could not open its sign-in popup. Allow pop-ups for this site, then try again. If this is hosted on Vercel, deploy the included vercel.json so Google OAuth popups can communicate correctly.'));
+            }else if(type === 'popup_closed'){
+              reject(new Error('Google sign-in was closed before permission was granted.'));
+            }else{
+              reject(new Error(error?.type || 'Google authorization failed.'));
+            }
           }
         });
 
