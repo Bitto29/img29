@@ -3,6 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1">
+<meta http-equiv="Cross-Origin-Opener-Policy" content="same-origin-allow-popups">
 <title>img29 — image editor</title>
 <link rel="icon" type="image/png" href="https://i.postimg.cc/G38VXMMt/image.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -289,20 +290,53 @@
   label.chk{ display:flex; align-items:center; gap:6px; font-size:12px; color:var(--text-dim); cursor:pointer; }
 
   .btn{
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    gap:8px;
+    min-height:42px;
     background:var(--bg-deep);
     border:1px solid var(--border);
     color:var(--text);
-    padding:8px 10px;
-    border-radius:var(--radius);
+    padding:9px 12px;
+    border-radius:6px;
     font-size:12.5px;
+    line-height:1.15;
+    font-family:var(--font-body);
     cursor:pointer;
-    transition:border-color .15s, color .15s;
+    transition:border-color .15s, color .15s, background .15s, transform .15s;
     flex:1;
+    text-align:center;
   }
-  .btn:hover:not(:disabled){ border-color:var(--accent); color:var(--accent); }
+  .btn:hover:not(:disabled){ border-color:var(--accent); color:var(--accent); background:rgba(232,161,61,.05); }
+  .btn:active:not(:disabled){ transform:translateY(1px); }
   .btn:disabled{ opacity:.35; cursor:not-allowed; }
   .btn.active{ border-color:var(--accent); color:var(--accent); background:rgba(232,161,61,0.08); }
   .btn.full{ width:100%; }
+  .btn .ui-icon{ flex:0 0 17px; width:17px; height:17px; stroke-width:1.9; }
+  .row .btn{ min-width:0; }
+  .section-body > .row{ width:100%; }
+  .google-open-row{ margin-top:-2px; }
+  .oauth-help{
+    display:flex;
+    gap:10px;
+    align-items:flex-start;
+    padding:11px 12px;
+    border:1px solid var(--border);
+    border-radius:6px;
+    background:linear-gradient(180deg, rgba(255,255,255,.02), rgba(255,255,255,.01));
+  }
+  .oauth-help .help-icon{
+    flex:0 0 20px; width:20px; height:20px; display:grid; place-items:center;
+    border:1px solid var(--border); border-radius:50%; color:var(--accent); font:600 12px/1 var(--font-mono);
+  }
+  .oauth-help strong{display:block; color:var(--text); font-size:12px; margin-bottom:3px;}
+  .oauth-help span{display:block; color:var(--text-faint); line-height:1.45; font-size:11px;}
+  .oauth-status{ min-height:18px; margin-top:2px; }
+  .modal .oauth-actions{ display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:14px; }
+  @media(max-width:520px){ .modal .oauth-actions{ grid-template-columns:1fr; } }
+  .open-picker-btn{ display:none; }
+  .open-picker-btn.show{ display:inline-flex; }
   .btn.small{ flex:none; padding:6px 9px; font-size:11.5px; }
 
   .preset-grid{ display:grid; grid-template-columns:1fr 1fr; gap:6px; }
@@ -457,7 +491,7 @@
             <button class="btn full" id="googlePhotosBtn"></button>
           </div>
           <p class="hint bulk-note">Bulk lets you select multiple image files and edit them one at a time. Use the arrows, thumbnails, swipe, or ←/→ keys to move between images.</p>
-          <p class="hint">Google Photos opens Google's picker so you can select a photo from your library, including photos available through shared content.</p>
+          <p class="hint">Google Photos lets you choose photos from your library, including photos available through shared content.</p>
           <input type="file" id="fileInput" accept="image/*" hidden>
           <input type="file" id="bulkFileInput" accept="image/*" multiple hidden>
         </div>
@@ -628,19 +662,22 @@
   <div class="modal" style="max-width:560px;">
     <h3>Google Photos import</h3>
     <p class="hint" style="margin-top:0;">
-      img29 uses Google's official Photos Picker. After it opens, search for the shared album or photo you want and select one image.
+      Select an image from Google Photos. img29 uses Google's official Photos Picker and keeps the selected file in this browser session.
     </p>
 
-    <div class="oauth-fixed">
-      <strong>Google account connection</strong>
-      <span>img29 is preconfigured with its Google OAuth client. No Client ID entry is required. Allow pop-ups for this site when connecting your Google account.</span>
+    <div class="oauth-help">
+      <div class="help-icon">G</div>
+      <div>
+        <strong>Google account connection</strong>
+        <span>Your Google client is already configured. Chrome may ask permission to open Google's secure sign-in dialog.</span>
+      </div>
     </div>
 
-    <div id="googlePhotosStatus" class="hint" style="margin:8px 0 0;"></div>
+    <div id="googlePhotosStatus" class="hint oauth-status"></div>
 
-    <div class="modal-actions">
-      <button class="btn full" id="googlePhotosStartBtn">Connect &amp; Pick</button>
-      <button class="btn full" id="googlePhotosCancelBtn">Cancel</button>
+    <div class="oauth-actions">
+      <button class="btn full" id="googlePhotosStartBtn"></button>
+      <button class="btn full" id="googlePhotosCancelBtn"></button>
     </div>
 
     <p class="hint" style="margin:12px 0 0;">
@@ -772,6 +809,9 @@
   const googlePhotosStatus = document.getElementById('googlePhotosStatus');
   const googlePhotosStartBtn = document.getElementById('googlePhotosStartBtn');
   const googlePhotosCancelBtn = document.getElementById('googlePhotosCancelBtn');
+
+  googlePhotosStartBtn.innerHTML = icon('photos','Connect & Pick');
+  googlePhotosCancelBtn.innerHTML = icon('close','Cancel');
 
   const iconLabels = {
     prevImageBtn:['prev',''], nextImageBtn:['next',''], headerCropBtn:['crop',''], headerRotateBtn:['rotate',''], headerAdjustBtn:['adjust',''], headerFullscreenBtn:['fullscreen',''],
@@ -1602,8 +1642,8 @@
       error_callback:error=>{
         const type = error?.type || '';
         if(type === 'popup_failed_to_open'){
-          setGoogleStatus('Google could not open the sign-in window. Chrome is blocking the OAuth popup. Allow pop-ups for this site, then click Connect & Pick again.', true);
-          toast('Google sign-in popup was blocked');
+          setGoogleStatus('Chrome blocked Google’s secure sign-in window. Allow pop-ups for this exact site, then click Connect & Pick again. If pop-ups are already allowed, redeploy with the included vercel.json so Google OAuth can communicate correctly.', true);
+          toast('Google sign-in window was blocked');
         }else if(type === 'popup_closed'){
           setGoogleStatus('Google sign-in was closed before permission was granted.', true);
           toast('Google sign-in closed');
@@ -1632,14 +1672,14 @@
 
     if(!pickerWindow){
       setGoogleStatus('Google Photos is ready. Click Open Google Photos below.', false);
-      googlePhotosStartBtn.textContent = 'Open Google Photos';
+      googlePhotosStartBtn.innerHTML = icon('photos','Open Google Photos');
       googlePhotosStartBtn.disabled = false;
       googlePhotosStartBtn.dataset.pickerUrl = pickerUrl;
       return;
     }
 
     googlePhotosStartBtn.dataset.pickerUrl = '';
-    googlePhotosStartBtn.textContent = 'Connect & Pick';
+    googlePhotosStartBtn.innerHTML = icon('photos','Connect & Pick');
     closeGooglePhotosModal();
     toast('Pick a photo in Google Photos, then return here.');
 
@@ -1701,7 +1741,7 @@
           setGoogleStatus(error?.message || 'Google Photos import failed.', true);
           toast(error?.message || 'Google Photos import failed.');
           googlePhotosStartBtn.dataset.pickerUrl = '';
-          googlePhotosStartBtn.textContent = 'Connect & Pick';
+          googlePhotosStartBtn.innerHTML = icon('photos','Connect & Pick');
           googlePhotosStartBtn.disabled = false;
         }
       }else{
@@ -1731,7 +1771,7 @@
         return;
       }
       googlePhotosStartBtn.dataset.pickerUrl = '';
-      googlePhotosStartBtn.textContent = 'Connect & Pick';
+      googlePhotosStartBtn.innerHTML = icon('photos','Connect & Pick');
       closeGooglePhotosModal();
       toast('Pick a photo in Google Photos, then return here.');
       return;
