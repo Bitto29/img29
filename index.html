@@ -628,12 +628,12 @@
   <div class="modal" style="max-width:560px;">
     <h3>Google Photos import</h3>
     <p class="hint" style="margin-top:0;">
-      Darkroom uses Google's official Photos Picker. After it opens, search for the shared album or photo you want and select one image.
+      img29 uses Google's official Photos Picker. After it opens, search for the shared album or photo you want and select one image.
     </p>
 
     <div class="oauth-fixed">
       <strong>Google account connection</strong>
-      <span>Darkroom is preconfigured with its Google OAuth client. No Client ID entry is required. Allow pop-ups for this site when connecting your Google account.</span>
+      <span>img29 is preconfigured with its Google OAuth client. No Client ID entry is required. Allow pop-ups for this site when connecting your Google account.</span>
     </div>
 
     <div id="googlePhotosStatus" class="hint" style="margin:8px 0 0;"></div>
@@ -644,7 +644,7 @@
     </div>
 
     <p class="hint" style="margin:12px 0 0;">
-      The selected image is fetched into the editor memory. It is not uploaded to a Darkroom server.
+      The selected image is fetched into the editor memory. It is not uploaded to an img29 server.
     </p>
   </div>
 </div>
@@ -1576,76 +1576,90 @@
     toast('Google Photos image imported');
   }
 
+  async function waitForGoogleIdentityServices(){
+    if(window.google?.accounts?.oauth2) return true;
+    setGoogleStatus('Loading Google sign-in…');
+    const started = Date.now();
+    while(Date.now() - started < 10000){
+      if(window.google?.accounts?.oauth2) return true;
+      await sleep(50);
+    }
+    throw new Error('Google sign-in could not load. Check your internet connection and allow accounts.google.com.');
+  }
+
+  function requestGoogleAccessToken(){
+    return new Promise((resolve, reject)=>{
+      let done = false;
+      const finish = (fn, value)=>{
+        if(done) return;
+        done = true;
+        fn(value);
+      };
+
+      const tokenClient = google.accounts.oauth2.initTokenClient({
+        client_id:GOOGLE_OAUTH_CLIENT_ID,
+        scope:GOOGLE_PHOTOS_SCOPE,
+        callback:response=>{
+          if(response?.access_token){
+            finish(resolve, response.access_token);
+          }else{
+            finish(reject, new Error(response?.error_description || response?.error || 'Google authorization failed.'));
+          }
+        },
+        error_callback:error=>{
+          const type = error?.type || '';
+          if(type === 'popup_failed_to_open'){
+            finish(reject, new Error('Google sign-in popup was blocked. Allow pop-ups for this site in your browser, then click Connect & Pick again.'));
+          }else if(type === 'popup_closed'){
+            finish(reject, new Error('Google sign-in was closed before permission was granted.'));
+          }else{
+            finish(reject, new Error(error?.message || error?.type || 'Google authorization failed.'));
+          }
+        }
+      });
+
+      // IMPORTANT: this must run directly from the user click when GIS is already loaded.
+      // Waiting here would lose the browser's user-activation permission for the OAuth popup.
+      tokenClient.requestAccessToken({prompt:'consent'});
+    });
+  }
+
   async function startGooglePhotosImport(){
-    const clientId = GOOGLE_OAUTH_CLIENT_ID;
     googlePhotosStartBtn.disabled = true;
 
     try{
+      // Do not await before requestAccessToken if GIS is already ready. OAuth popup
+      // creation needs the original click's user activation.
       if(!window.google?.accounts?.oauth2){
-        setGoogleStatus('Loading Google sign-in…');
-        await new Promise((resolve, reject)=>{
-          const started = Date.now();
-          const timer = setInterval(()=>{
-            if(window.google?.accounts?.oauth2){
-              clearInterval(timer);
-              resolve();
-            }else if(Date.now() - started > 10000){
-              clearInterval(timer);
-              reject(new Error('Google sign-in could not load. Check your internet connection and allow accounts.google.com.'));
-            }
-          }, 50);
-        });
+        googlePhotosStartBtn.disabled = false;
+        setGoogleStatus('Google sign-in is still loading. Please click Connect & Pick again in a moment.', true);
+        await waitForGoogleIdentityServices();
+        return;
       }
 
       setGoogleStatus('Requesting Google Photos permission…');
+      googleAccessToken = await requestGoogleAccessToken();
 
-      googleAccessToken = await new Promise((resolve, reject)=>{
-        let done = false;
-
-        const tokenClient = google.accounts.oauth2.initTokenClient({
-          client_id:clientId,
-          scope:GOOGLE_PHOTOS_SCOPE,
-          callback:response=>{
-            if(done) return;
-            done = true;
-
-            if(response?.access_token){
-              resolve(response.access_token);
-            }else{
-              reject(new Error(response?.error_description || response?.error || 'Google authorization failed.'));
-            }
-          },
-          error_callback:error=>{
-            if(done) return;
-            done = true;
-            const type = error?.type || '';
-            if(type === 'popup_failed_to_open'){
-              reject(new Error('Google could not open its sign-in popup. Allow pop-ups for this site, then try again. If this is hosted on Vercel, deploy the included vercel.json so Google OAuth popups can communicate correctly.'));
-            }else if(type === 'popup_closed'){
-              reject(new Error('Google sign-in was closed before permission was granted.'));
-            }else{
-              reject(new Error(error?.type || 'Google authorization failed.'));
-            }
-          }
-        });
-
-        tokenClient.requestAccessToken({ prompt:'consent' });
-      });
-
+      setGoogleStatus('Creating a Google Photos picker…');
       const session = await createGooglePhotosSession();
       googlePickerSessionId = session.id;
 
-      // Google explicitly prevents embedding the Picker in an iframe.
-      const pickerWindow = window.open(
-        session.pickerUri + '/autoclose',
-        '_blank',
-        'noopener,noreferrer'
-      );
+      // Picker opening happens after async API calls, so browsers may block it as a popup.
+      // First try the normal new-tab flow. If blocked, keep the session alive and give the
+      // user a real click target, which restores user activation.
+      const pickerUrl = session.pickerUri + '/autoclose';
+      const pickerWindow = window.open(pickerUrl, '_blank', 'noopener,noreferrer');
 
       if(!pickerWindow){
-        throw new Error('The Google Photos window was blocked. Allow pop-ups for this site and try again.');
+        setGoogleStatus('Google Photos is ready. Click the button below to open the picker.', false);
+        googlePhotosStartBtn.textContent = 'Open Google Photos';
+        googlePhotosStartBtn.disabled = false;
+        googlePhotosStartBtn.dataset.pickerUrl = pickerUrl;
+        return;
       }
 
+      googlePhotosStartBtn.dataset.pickerUrl = '';
+      googlePhotosStartBtn.textContent = 'Connect & Pick';
       closeGooglePhotosModal();
       toast('Pick a photo in Google Photos, then return here.');
 
@@ -1658,7 +1672,6 @@
 
       setGoogleStatus(`Importing ${items.length} selected image${items.length === 1 ? '' : 's'}…`);
 
-      // Add each selected photo to the same multi-image workspace.
       const imported = [];
       for(let i = 0; i < items.length; i++){
         const item = items[i];
@@ -1672,14 +1685,12 @@
           if(!res.ok) continue;
 
           const blob = await res.blob();
-          const file = new File(
+          imported.push(new File(
             [blob],
             `google-photos-${Date.now()}-${i + 1}.jpg`,
             { type:blob.type || 'image/jpeg' }
-          );
-
-          imported.push(file);
-        }catch(_){}
+          ));
+        }catch(_){ }
       }
 
       if(!imported.length){
@@ -1694,20 +1705,11 @@
       setGoogleStatus(error?.message || 'Google Photos import failed.', true);
       toast(error?.message || 'Google Photos import failed.');
     }finally{
-      googlePhotosStartBtn.disabled = false;
-
-      // Google recommends deleting completed/expired picker sessions.
-      if(googlePickerSessionId && googleAccessToken){
-        const id = googlePickerSessionId;
-        googlePickerSessionId = null;
-
-        fetch(
-          `https://photospicker.googleapis.com/v1/sessions/${encodeURIComponent(id)}`,
-          {
-            method:'DELETE',
-            headers:{ 'Authorization':'Bearer ' + googleAccessToken }
-          }
-        ).catch(()=>{});
+      if(!googlePhotosStartBtn.dataset.pickerUrl){
+        googlePhotosStartBtn.disabled = false;
+      }
+      if(googlePhotosStartBtn.dataset.pickerUrl){
+        googlePhotosStartBtn.disabled = false;
       }
     }
   }
@@ -1715,7 +1717,23 @@
   googlePhotosBtn.addEventListener('click', openGooglePhotosModal);
   emptyGooglePhotosBtn.addEventListener('click', openGooglePhotosModal);
   googlePhotosCancelBtn.addEventListener('click', closeGooglePhotosModal);
-  googlePhotosStartBtn.addEventListener('click', startGooglePhotosImport);
+
+  googlePhotosStartBtn.addEventListener('click', async ()=>{
+    const pickerUrl = googlePhotosStartBtn.dataset.pickerUrl;
+    if(pickerUrl){
+      const w = window.open(pickerUrl, '_blank', 'noopener,noreferrer');
+      if(!w){
+        setGoogleStatus('Your browser is still blocking pop-ups. Allow pop-ups for this site, then click Open Google Photos again.', true);
+        return;
+      }
+      googlePhotosStartBtn.dataset.pickerUrl = '';
+      googlePhotosStartBtn.textContent = 'Connect & Pick';
+      closeGooglePhotosModal();
+      toast('Pick a photo in Google Photos, then return here.');
+      return;
+    }
+    await startGooglePhotosImport();
+  });
 
   googlePhotosModal.addEventListener('click', event=>{
     if(event.target === googlePhotosModal) closeGooglePhotosModal();
@@ -1770,7 +1788,7 @@
     const dataURL = mainCanvas.toDataURL(mime, 0.92);
     const a = document.createElement('a');
     a.href = dataURL;
-    a.download = `darkroom-edit.${fmt==='png'?'png':'jpg'}`;
+    a.download = `img29-edit.${fmt==='png'?'png':'jpg'}`;
     document.body.appendChild(a);
     a.click();
     a.remove();
