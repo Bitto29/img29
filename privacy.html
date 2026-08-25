@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Privacy Policy — img29</title>
+<style>
+  :root{
+    --bg:#0f0d0c; --bg-deep:#0a0908; --border:#2a2523; --text:#f0ece7;
+    --text-dim:#a89f97; --text-faint:#7a716a; --accent:#e8a13d;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0; background:var(--bg); color:var(--text);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,sans-serif;
+    line-height:1.65;
+  }
+  .wrap{max-width:760px; margin:0 auto; padding:56px 24px 90px;}
+  h1{font-size:28px; margin:0 0 6px; letter-spacing:-0.01em;}
+  .updated{color:var(--text-faint); font-size:13px; margin-bottom:36px;}
+  h2{font-size:18px; margin:38px 0 10px; color:var(--accent); letter-spacing:-0.01em;}
+  p, li{color:var(--text-dim); font-size:15px;}
+  ul{padding-left:20px;}
+  li{margin-bottom:6px;}
+  a{color:var(--accent); text-decoration:none;}
+  a:hover{text-decoration:underline;}
+  .back{display:inline-block; margin-bottom:28px; color:var(--text-faint); font-size:13px;}
+  code{background:var(--bg-deep); border:1px solid var(--border); padding:1px 6px; border-radius:4px; font-size:13px;}
+  hr{border:none; border-top:1px solid var(--border); margin:44px 0 28px;}
+  .contact{background:var(--bg-deep); border:1px solid var(--border); border-radius:10px; padding:16px 18px; font-size:14px;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <a class="back" href="/">← Back to img29</a>
+  <h1>Privacy Policy</h1>
+  <div class="updated">Effective date: August 25, 2026</div>
+
+  <p>img29 ("the app", "we", "our") is a browser-based image editor. This policy explains what data the app touches, how it's used, and your choices — including when you connect a Google account to import photos.</p>
+
+  <h2>1. How img29 works</h2>
+  <p>img29 runs entirely in your web browser. When you open, edit, crop, draw on, or export an image, that processing happens locally on your device using your browser's canvas engine. We do not operate a backend server that stores, scans, or has access to your images. Nothing you edit is uploaded to us.</p>
+
+  <h2>2. Images you provide</h2>
+  <p>Images can enter the app through:</p>
+  <ul>
+    <li><strong>File upload</strong> — chosen directly from your device.</li>
+    <li><strong>Camera capture</strong> — taken using your device camera, with your explicit browser permission.</li>
+    <li><strong>Google Photos</strong> — selected by you through Google's official Photos Picker (see Section 3).</li>
+  </ul>
+  <p>These images stay in your browser's memory for the duration of your session so you can edit and export them. Closing or refreshing the tab clears them. We do not copy, log, or retain your images on any server we control.</p>
+
+  <h2>3. Google Photos integration</h2>
+  <p>If you choose to import from Google Photos, img29 uses Google's OAuth sign-in and the official Google Photos Picker API to let you select images from your library. This requires the following:</p>
+  <ul>
+    <li>We request the scope <code>photospicker.mediaitems.readonly</code>, which only lets the app download the specific photo(s) you actively select in Google's picker interface — img29 has no access to the rest of your Google Photos library.</li>
+    <li>The access token issued by Google is used only in your browser, only for the duration of that import, and is not sent to or stored on any server we operate.</li>
+    <li>The selected image is downloaded directly from Google's servers to your browser so you can edit it locally, the same way a regular file upload would work.</li>
+  </ul>
+  <p>Your use of Google Photos through img29 is also subject to <a href="https://policies.google.com/privacy" target="_blank" rel="noopener">Google's Privacy Policy</a>. You can revoke img29's access at any time from your <a href="https://myaccount.google.com/permissions" target="_blank" rel="noopener">Google Account permissions page</a>.</p>
+
+  <h2>4. What we don't do</h2>
+  <ul>
+    <li>We don't sell, rent, or share your images or account data with third parties.</li>
+    <li>We don't use your images to train any model.</li>
+    <li>We don't run analytics or advertising trackers that build a profile of you.</li>
+    <li>We don't store your Google access token beyond your active browser session.</li>
+  </ul>
+
+  <h2>5. Local browser storage</h2>
+  <p>img29 may use temporary in-memory browser storage to keep your current editing session (e.g. undo history, multiple loaded images) responsive. This data lives only in your browser and is cleared when you close or reload the page — it is never transmitted to us.</p>
+
+  <h2>6. Children's privacy</h2>
+  <p>img29 is not directed at children under 13, and we do not knowingly collect personal information from children.</p>
+
+  <h2>7. Changes to this policy</h2>
+  <p>We may update this policy as the app evolves. The "Effective date" above will reflect the most recent revision. Continued use of img29 after changes means you accept the updated policy.</p>
+
+  <h2>8. Contact</h2>
+  <div class="contact">
+    Questions about this policy or your data? Reach out at
+    <a href="mailto:contact@img29.app">contact@img29.app</a>.
+  </div>
+
+  <hr>
+  <p style="font-size:13px; color:var(--text-faint);">img29 · <a href="https://github.com/Bitto29/img29" target="_blank" rel="noopener">Source on GitHub</a></p>
+</div>
+</body>
+</html>
