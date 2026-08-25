@@ -131,6 +131,57 @@
     .thumbnail-strip{max-width:92%; bottom:8px;}
   }
 
+  /* ---------- sidebar collapse ---------- */
+  #sidebarToggleBtn.active{ border-color:var(--accent); color:var(--accent); }
+  .app.sidebar-collapsed .toolbar{ display:none; }
+  @media(max-width:900px){
+    #sidebarToggleBtn{ display:none; }
+  }
+
+  /* ---------- zoom controls ---------- */
+  .canvas-stage{ transition:padding .15s; }
+  #canvasWrap{ transform-origin:center center; transition:transform .12s ease-out; }
+  .zoom-controls{
+    position:absolute;
+    right:14px; bottom:12px;
+    display:flex; align-items:center; gap:2px;
+    padding:5px;
+    border:1px solid var(--border);
+    border-radius:8px;
+    background:rgba(20,17,15,.88);
+    backdrop-filter:blur(8px);
+    box-shadow:0 8px 22px rgba(0,0,0,.3);
+    z-index:6;
+  }
+  .zoom-controls button{
+    width:28px; height:28px;
+    display:inline-flex; align-items:center; justify-content:center;
+    background:transparent;
+    border:1px solid transparent;
+    color:var(--text);
+    border-radius:5px;
+    cursor:pointer;
+    font-family:var(--font-mono);
+    font-size:15px;
+    line-height:1;
+  }
+  .zoom-controls button:hover:not(:disabled){ border-color:var(--accent-dim); color:var(--accent); }
+  .zoom-controls button:disabled{ opacity:.3; cursor:not-allowed; }
+  .zoom-controls .zoom-label{
+    min-width:44px; text-align:center;
+    font-family:var(--font-mono); font-size:11px; color:var(--text-dim);
+    cursor:pointer; user-select:none;
+  }
+  .zoom-controls .zoom-label:hover{ color:var(--accent); }
+  .zoom-controls .sep{ width:1px; height:18px; background:var(--border); margin:0 3px; }
+  #panBtn.active{ border-color:var(--accent); color:var(--accent); background:rgba(232,161,61,.08); }
+  .canvas-stage.pan-mode{ cursor:grab; }
+  .canvas-stage.pan-mode.panning{ cursor:grabbing; }
+  .canvas-stage.pan-mode #overlayCanvas{ pointer-events:none; }
+  @media(max-width:900px){
+    .zoom-controls{ right:8px; bottom:8px; }
+  }
+
   /* ---------- topbar ---------- */
   .topbar{
     display:flex;
@@ -464,6 +515,7 @@
         <button class="icon-btn compact" id="nextImageBtn" title="Next image"></button>
       </div>
       <div class="header-edit">
+        <button class="icon-btn compact" id="sidebarToggleBtn" title="Toggle sidebar"></button>
         <button class="icon-btn compact" id="headerCropBtn" title="Crop"></button>
         <button class="icon-btn compact" id="headerRotateBtn" title="Rotate right"></button>
         <button class="icon-btn compact" id="headerAdjustBtn" title="Open adjustments"></button>
@@ -653,6 +705,14 @@
 
       <div class="thumbnail-strip" id="thumbnailStrip" style="display:none;"></div>
 
+      <div class="zoom-controls" id="zoomControls" style="display:none;">
+        <button id="zoomOutBtn" title="Zoom out"></button>
+        <span class="zoom-label" id="zoomLabel" title="Reset zoom">100%</span>
+        <button id="zoomInBtn" title="Zoom in"></button>
+        <span class="sep"></span>
+        <button id="panBtn" title="Grab &amp; move image"></button>
+      </div>
+
       <div class="stage-info" id="stageInfo"></div>
     </section>
   </main>
@@ -720,7 +780,11 @@
       photos:'<rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="8" cy="9" r="1.5"/><path d="m4 17 5-5 3 3 2-2 6 4"/>',
       brush:'<path d="m14 4 6 6"/><path d="M5 19c2.5.5 4.5-.5 5.8-1.8L19 9l-6-6-8.2 8.2C3.5 12.5 2.5 15 3 17c.3 1 1 1.7 2 2Z"/><path d="M3 21c2.5-1 4.5-1 6 0"/>',
       flipH:'<path d="M12 3v18"/><path d="m8 7-4 5 4 5"/><path d="m16 7 4 5-4 5"/>', flipV:'<path d="M3 12h18"/><path d="m7 8 5-4 5 4"/><path d="m7 16 5 4 5-4"/>',
-      text:'<path d="M5 5h14M12 5v14M8 19h8"/>', check:'<path d="m5 12 4 4L19 6"/>'
+      text:'<path d="M5 5h14M12 5v14M8 19h8"/>', check:'<path d="m5 12 4 4L19 6"/>',
+      sidebar:'<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16"/>',
+      zoomIn:'<circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/><path d="M11 8v6M8 11h6"/>',
+      zoomOut:'<circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/><path d="M8 11h6"/>',
+      hand:'<path d="M18 11V6a2 2 0 0 0-4 0v5"/><path d="M14 10V4a2 2 0 0 0-4 0v7"/><path d="M10 10.5V6a2 2 0 0 0-4 0v8"/><path d="M6 14v0a8 8 0 0 0 8 8h1a7 7 0 0 0 7-7v-3a2 2 0 0 0-4 0"/>'
     };
     return `<svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">${paths[name]||''}</svg>${label?`<span>${label}</span>`:''}`;
   }
@@ -759,6 +823,13 @@
   const headerRotateBtn = document.getElementById('headerRotateBtn');
   const headerAdjustBtn = document.getElementById('headerAdjustBtn');
   const headerFullscreenBtn = document.getElementById('headerFullscreenBtn');
+  const sidebarToggleBtn = document.getElementById('sidebarToggleBtn');
+
+  const zoomControls = document.getElementById('zoomControls');
+  const zoomInBtn = document.getElementById('zoomInBtn');
+  const zoomOutBtn = document.getElementById('zoomOutBtn');
+  const zoomLabel = document.getElementById('zoomLabel');
+  const panBtn = document.getElementById('panBtn');
 
   const multiNav = document.getElementById('multiNav');
   const stagePrevBtn = document.getElementById('stagePrevBtn');
@@ -818,7 +889,8 @@
     undoBtn:['undo','Undo'], redoBtn:['redo','Redo'], newBtn:['close','New'], downloadBtn:['download','Export'], uploadBtn:['upload','Single'], bulkUploadBtn:['upload','Bulk'], cameraBtn:['camera','Camera'],
     googlePhotosBtn:['photos','Google Photos'], rotLeftBtn:['rotate','Rotate L'], rotRightBtn:['rotate','Rotate R'], flipHBtn:['flipH','Flip H'], flipVBtn:['flipV','Flip V'], cropModeBtn:['crop','Crop'],
     drawModeBtn:['brush','Brush'], textModeBtn:['text','Place text'], downloadBtn2:['download','Download image'], stagePrevBtn:['prev',''], stageNextBtn:['next',''], emptyUploadBtn:['upload','Upload image'],
-    emptyBulkUploadBtn:['upload','Bulk images'], emptyGooglePhotosBtn:['photos','Google Photos'], emptyCameraBtn:['camera','Use camera'], applyAdjustBtn:['check','Apply'], camCaptureBtn:['camera','Capture']
+    emptyBulkUploadBtn:['upload','Bulk images'], emptyGooglePhotosBtn:['photos','Google Photos'], emptyCameraBtn:['camera','Use camera'], applyAdjustBtn:['check','Apply'], camCaptureBtn:['camera','Capture'],
+    sidebarToggleBtn:['sidebar',''], zoomInBtn:['zoomIn',''], zoomOutBtn:['zoomOut',''], panBtn:['hand','']
   };
   Object.entries(iconLabels).forEach(([id,spec])=>{ const el=document.getElementById(id); if(el) el.innerHTML=icon(spec[0],spec[1]); });
 
@@ -843,6 +915,10 @@
 
   let mode = 'idle'; // idle | crop | draw | text
   let camStream = null;
+
+  // ---------- zoom state ----------
+  let zoomLevel = 1;
+  const ZOOM_MIN = 0.25, ZOOM_MAX = 4, ZOOM_STEP = 0.25;
 
   const GOOGLE_PHOTOS_SCOPE = 'https://www.googleapis.com/auth/photospicker.mediaitems.readonly';
   let googleAccessToken = null;
@@ -975,8 +1051,63 @@
       canvasWrap.style.display = 'block';
       downloadBtn.disabled = false;
       downloadBtn2.disabled = false;
+      zoomControls.style.display = 'flex';
     }
   }
+
+  // ---------- zoom ----------
+  function applyZoom(){
+    canvasWrap.style.transform = zoomLevel===1 ? '' : `scale(${zoomLevel})`;
+    zoomLabel.textContent = Math.round(zoomLevel*100) + '%';
+    zoomOutBtn.disabled = zoomLevel<=ZOOM_MIN;
+    zoomInBtn.disabled = zoomLevel>=ZOOM_MAX;
+  }
+  function setZoom(z){
+    zoomLevel = Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, Math.round(z*100)/100));
+    applyZoom();
+  }
+  function resetZoom(){ setZoom(1); setPanMode(false); }
+  zoomInBtn.addEventListener('click', ()=> setZoom(zoomLevel + ZOOM_STEP));
+  zoomOutBtn.addEventListener('click', ()=> setZoom(zoomLevel - ZOOM_STEP));
+  zoomLabel.addEventListener('click', resetZoom);
+  stage.addEventListener('wheel', (e)=>{
+    if(!hasImage || !e.ctrlKey) return;
+    e.preventDefault();
+    setZoom(zoomLevel + (e.deltaY < 0 ? ZOOM_STEP : -ZOOM_STEP));
+  }, {passive:false});
+  applyZoom();
+
+  // ---------- grab-to-pan ----------
+  let panMode = false;
+  let panDrag = null; // {startX, startY, scrollL, scrollT}
+  function setPanMode(on){
+    panMode = on && hasImage;
+    stage.classList.toggle('pan-mode', panMode);
+    panBtn.classList.toggle('active', panMode);
+  }
+  panBtn.addEventListener('click', ()=> setPanMode(!panMode));
+  stage.addEventListener('pointerdown', (e)=>{
+    if(!panMode) return;
+    panDrag = { id:e.pointerId, startX:e.clientX, startY:e.clientY, scrollL:stage.scrollLeft, scrollT:stage.scrollTop };
+    stage.classList.add('panning');
+    stage.setPointerCapture(e.pointerId);
+  });
+  stage.addEventListener('pointermove', (e)=>{
+    if(!panDrag || panDrag.id!==e.pointerId) return;
+    stage.scrollLeft = panDrag.scrollL - (e.clientX - panDrag.startX);
+    stage.scrollTop = panDrag.scrollT - (e.clientY - panDrag.startY);
+  });
+  function endPan(e){
+    if(panDrag){ stage.classList.remove('panning'); panDrag = null; }
+  }
+  stage.addEventListener('pointerup', endPan);
+  stage.addEventListener('pointercancel', endPan);
+
+  // ---------- sidebar collapse ----------
+  sidebarToggleBtn.addEventListener('click', ()=>{
+    document.querySelector('.app').classList.toggle('sidebar-collapsed');
+    sidebarToggleBtn.classList.toggle('active');
+  });
 
   function loadImageSource(imgOrCanvas, srcW, srcH){
     // scale down if too large
@@ -996,6 +1127,7 @@
     setBase(tmp);
     history = []; histIndex = -1;
     pushHistory();
+    resetZoom();
     toast('Image loaded');
   }
 
@@ -1114,6 +1246,7 @@
 
       activeImageIndex = index;
       hasImage = true;
+      resetZoom();
       renderThumbnailStrip();
       updateImageControls();
       stageInfo.textContent = `${baseCanvas.width} × ${baseCanvas.height}px • ${item.name || `Image ${index+1}`}`;
@@ -1204,6 +1337,8 @@
     canvasWrap.style.display = 'none';
     downloadBtn.disabled = true;
     downloadBtn2.disabled = true;
+    zoomControls.style.display = 'none';
+    resetZoom();
     updateImageControls();
     renderThumbnailStrip();
   }
@@ -1236,6 +1371,7 @@
   // ---------- mode handling ----------
   function setMode(next){
     mode = next;
+    if(next !== 'idle') setPanMode(false);
     canvasWrap.classList.toggle('mode-idle', mode==='idle');
     overlayCanvas.style.cursor = mode==='draw' ? 'crosshair' : (mode==='crop' ? 'crosshair' : (mode==='text' ? 'text' : 'default'));
     drawModeBtn.classList.toggle('active', mode==='draw');
@@ -1330,7 +1466,15 @@
       pushHistory();
     }
   }
-  overlayCanvas.addEventListener('pointerup', endDraw);
+  function endCropDrag(){
+    // Without this, cropDragStart stayed set after mouseup and the crop
+    // box kept resizing on any subsequent mouse movement, not just drags.
+    if(mode==='crop' && cropDragStart){
+      cropDragStart = null;
+    }
+  }
+  overlayCanvas.addEventListener('pointerup', (e)=>{ endDraw(); endCropDrag(); });
+  overlayCanvas.addEventListener('pointercancel', (e)=>{ endDraw(); endCropDrag(); });
   overlayCanvas.addEventListener('pointerleave', ()=>{ if(mode==='draw' && drawing) endDraw(); });
 
   cropModeBtn.addEventListener('click', ()=>{
