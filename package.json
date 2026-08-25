@@ -1,0 +1,11 @@
+{
+  "name": "img29-google-photos-link-import",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22.18.0"
+  },
+  "dependencies": {
+    "google-photos-album-image-url-fetch": "^3.2.0"
+  }
+}

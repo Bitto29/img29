@@ -1,0 +1,1952 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1">
+<meta http-equiv="Cross-Origin-Opener-Policy" content="same-origin-allow-popups">
+<meta name="google-site-verification" content="pAbeSvTn_Opp7CxkwNaxyQWKKzQlp_HV4J2wI0PFzHc" />
+<title>img29 — image editor</title>
+<link rel="icon" type="image/png" href="https://i.postimg.cc/C5kTSDcc/336d9ad9-b17c-499a-be9d-da1cd7bd8027.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg: #14110f;
+    --bg-deep: #0d0b09;
+    --panel: #1c1815;
+    --panel-2: #221d19;
+    --border: #322b24;
+    --text: #f2ede4;
+    --text-dim: #a89a89;
+    --text-faint: #6f6355;
+    --accent: #e8a13d;
+    --accent-dim: #7a5320;
+    --accent-glow: rgba(232,161,61,0.35);
+    --danger: #d9645a;
+    --safe: #7fae6f;
+    --font-display: 'Space Grotesk', sans-serif;
+    --font-mono: 'IBM Plex Mono', ui-monospace, monospace;
+    --font-body: 'Inter', -apple-system, sans-serif;
+    --radius: 3px;
+  }
+  *{box-sizing:border-box;}
+  html,body{height:100%;}
+  body{
+    margin:0;
+    background:
+      radial-gradient(ellipse at top left, rgba(232,161,61,0.05), transparent 55%),
+      var(--bg);
+    color:var(--text);
+    font-family:var(--font-body);
+    overflow:hidden;
+    -webkit-font-smoothing:antialiased;
+  }
+  ::selection{background:var(--accent-glow);}
+  button{font-family:var(--font-body);}
+  input[type="range"]{accent-color:var(--accent);}
+
+  .app{
+    display:flex;
+    flex-direction:column;
+    height:100vh;
+  }
+
+
+  /* ---------- multi-image / fullscreen additions ---------- */
+  .topbar{position:relative; z-index:12;}
+  .topbar-actions .nav-group{display:flex; align-items:center; gap:6px;}
+  .image-counter{
+    min-width:82px; text-align:center;
+    font-family:var(--font-mono); font-size:11px;
+    color:var(--text-dim);
+    padding:7px 9px;
+    border:1px solid var(--border);
+    border-radius:var(--radius);
+    background:var(--bg-deep);
+  }
+  .icon-btn.compact{padding:7px 9px; min-width:34px; justify-content:center;}
+  .header-edit{display:flex; align-items:center; gap:6px;}
+  .header-edit .icon-btn{min-width:34px; justify-content:center;}
+  .fullscreen-active .app{height:100vh;}
+  .fullscreen-active .toolbar{display:none;}
+  .fullscreen-active .canvas-stage{padding:28px;}
+  .fullscreen-active .topbar{padding:8px 12px;}
+  .fullscreen-active #mainCanvas,
+  .fullscreen-active #overlayCanvas{max-height:calc(100vh - 80px);}
+  .multi-nav{
+    position:absolute;
+    left:14px; right:14px; top:50%;
+    display:flex; justify-content:space-between; align-items:center;
+    transform:translateY(-50%);
+    pointer-events:none;
+    z-index:5;
+  }
+  .multi-nav .nav-arrow{
+    pointer-events:auto;
+    width:40px; height:40px;
+    border:1px solid var(--border);
+    background:rgba(20,17,15,.82);
+    color:var(--text);
+    border-radius:50%;
+    cursor:pointer;
+    font-size:18px;
+    display:inline-flex; align-items:center; justify-content:center;
+    backdrop-filter:blur(8px);
+    box-shadow:0 8px 22px rgba(0,0,0,.3);
+  }
+  .multi-nav .nav-arrow:hover:not(:disabled){border-color:var(--accent); color:var(--accent);}
+  .multi-nav .nav-arrow:disabled{opacity:.25; cursor:not-allowed;}
+  .thumbnail-strip{
+    position:absolute;
+    left:50%; bottom:10px;
+    transform:translateX(-50%);
+    display:flex; gap:6px; align-items:center;
+    max-width:80%;
+    overflow-x:auto;
+    padding:6px;
+    border:1px solid var(--border);
+    border-radius:6px;
+    background:rgba(20,17,15,.88);
+    backdrop-filter:blur(8px);
+    z-index:6;
+  }
+  .thumb{
+    width:52px; height:40px; flex:0 0 auto;
+    padding:0; border:1px solid var(--border);
+    background:var(--bg-deep);
+    overflow:hidden; border-radius:3px;
+    cursor:pointer;
+  }
+  .thumb.active{border-color:var(--accent); box-shadow:0 0 0 1px var(--accent-dim);}
+  .thumb img{width:100%; height:100%; object-fit:cover; display:block;}
+  .thumb-more{color:var(--text-faint); font:10px var(--font-mono); padding:0 5px;}
+  .canvas-stage.swipe-ready{touch-action:pan-y;}
+  .bulk-note{margin-top:-2px;}
+  @media(max-width:900px){
+    .topbar{flex-wrap:wrap;}
+    .topbar-actions{flex-wrap:wrap; justify-content:flex-end;}
+    .image-counter{min-width:72px;}
+    .header-edit{order:3; width:100%; justify-content:center;}
+    .multi-nav{left:8px; right:8px;}
+    .multi-nav .nav-arrow{width:36px;height:36px;}
+    .thumbnail-strip{max-width:92%; bottom:8px;}
+  }
+
+  /* ---------- sidebar collapse ---------- */
+  #sidebarToggleBtn.active{ border-color:var(--accent); color:var(--accent); }
+  .app.sidebar-collapsed .toolbar{ display:none; }
+  @media(max-width:900px){
+    #sidebarToggleBtn{ display:none; }
+  }
+
+  /* ---------- zoom controls ---------- */
+  .canvas-stage{ transition:padding .15s; }
+  #canvasWrap{ transform-origin:center center; transition:transform .12s ease-out; }
+  .zoom-controls{
+    position:absolute;
+    right:14px; bottom:12px;
+    display:flex; align-items:center; gap:2px;
+    padding:5px;
+    border:1px solid var(--border);
+    border-radius:8px;
+    background:rgba(20,17,15,.88);
+    backdrop-filter:blur(8px);
+    box-shadow:0 8px 22px rgba(0,0,0,.3);
+    z-index:6;
+  }
+  .zoom-controls button{
+    width:28px; height:28px;
+    display:inline-flex; align-items:center; justify-content:center;
+    background:transparent;
+    border:1px solid transparent;
+    color:var(--text);
+    border-radius:5px;
+    cursor:pointer;
+    font-family:var(--font-mono);
+    font-size:15px;
+    line-height:1;
+  }
+  .zoom-controls button:hover:not(:disabled){ border-color:var(--accent-dim); color:var(--accent); }
+  .zoom-controls button:disabled{ opacity:.3; cursor:not-allowed; }
+  .zoom-controls .zoom-label{
+    min-width:44px; text-align:center;
+    font-family:var(--font-mono); font-size:11px; color:var(--text-dim);
+    cursor:pointer; user-select:none;
+  }
+  .zoom-controls .zoom-label:hover{ color:var(--accent); }
+  .zoom-controls .sep{ width:1px; height:18px; background:var(--border); margin:0 3px; }
+  #panBtn.active{ border-color:var(--accent); color:var(--accent); background:rgba(232,161,61,.08); }
+  .canvas-stage.pan-mode{ cursor:grab; }
+  .canvas-stage.pan-mode.panning{ cursor:grabbing; }
+  .canvas-stage.pan-mode #overlayCanvas{ pointer-events:none; }
+  @media(max-width:900px){
+    .zoom-controls{ right:8px; bottom:8px; }
+  }
+
+  /* ---------- topbar ---------- */
+  .topbar{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:12px;
+    padding:12px 18px;
+    background:var(--bg-deep);
+    border-bottom:1px solid var(--border);
+    flex-shrink:0;
+  }
+  .brand{
+    display:flex;
+    align-items:baseline;
+    gap:10px;
+    font-family:var(--font-display);
+    font-weight:700;
+    font-size:17px;
+    letter-spacing:0.02em;
+  }
+  .brand .dot{color:var(--accent); font-size:14px;}
+  .brand .tagline{
+    font-family:var(--font-mono);
+    font-weight:400;
+    font-size:11px;
+    color:var(--text-faint);
+    letter-spacing:0.03em;
+    display:none;
+  }
+  @media(min-width:640px){ .brand .tagline{display:inline;} }
+
+  .topbar-actions{display:flex; align-items:center; gap:8px;}
+  .ui-icon{width:15px;height:15px;display:block;flex:0 0 15px;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;fill:none;}
+  .icon-btn.compact .ui-icon{width:16px;height:16px;flex-basis:16px;}
+  .oauth-fixed{display:flex;flex-direction:column;gap:3px;margin:10px 0 12px;padding:10px 12px;border:1px solid var(--border);background:var(--bg-deep);border-radius:var(--radius);font-size:12px;}
+  .oauth-fixed strong{color:var(--text);font-size:12px;}
+  .oauth-fixed span{color:var(--text-faint);line-height:1.5;}
+  .icon-btn{
+    display:inline-flex; align-items:center; gap:6px;
+    background:transparent;
+    border:1px solid var(--border);
+    color:var(--text-dim);
+    padding:7px 11px;
+    border-radius:var(--radius);
+    font-size:12.5px;
+    font-family:var(--font-mono);
+    cursor:pointer;
+    transition:border-color .15s, color .15s, background .15s;
+    white-space:nowrap;
+  }
+  .icon-btn:hover:not(:disabled){ border-color:var(--accent-dim); color:var(--text); }
+  .icon-btn:disabled{opacity:.35; cursor:not-allowed;}
+  .icon-btn.primary{
+    background:var(--accent);
+    border-color:var(--accent);
+    color:#1c1204;
+    font-weight:600;
+  }
+  .icon-btn.primary:hover{ background:#f0ad52; }
+
+  /* ---------- workspace ---------- */
+  .workspace{
+    flex:1;
+    display:flex;
+    min-height:0;
+  }
+  @media(max-width:900px){
+    .workspace{flex-direction:column;}
+  }
+
+  /* ---------- toolbar / sidebar ---------- */
+  .toolbar{
+    width:300px;
+    flex-shrink:0;
+    background:var(--panel);
+    border-right:1px solid var(--border);
+    overflow-y:auto;
+    padding:10px;
+  }
+  @media(max-width:900px){
+    .toolbar{
+      width:100%;
+      order:2;
+      border-right:none;
+      border-top:1px solid var(--border);
+      max-height:46vh;
+    }
+  }
+
+  details.section{
+    border:1px solid var(--border);
+    border-radius:var(--radius);
+    margin-bottom:8px;
+    background:var(--panel-2);
+    overflow:hidden;
+  }
+  details.section[open]{ border-color:#3a3128; }
+  details.section summary{
+    list-style:none;
+    cursor:pointer;
+    padding:11px 12px;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    font-family:var(--font-mono);
+    font-size:11.5px;
+    letter-spacing:0.08em;
+    text-transform:uppercase;
+    color:var(--text-dim);
+    user-select:none;
+  }
+  details.section summary::-webkit-details-marker{display:none;}
+  details.section summary::after{
+    content:'+';
+    font-family:var(--font-mono);
+    color:var(--accent);
+    font-size:14px;
+  }
+  details.section[open] summary::after{ content:'–'; }
+  details.section summary:hover{ color:var(--text); }
+  .section-body{
+    padding:4px 12px 14px;
+    display:flex;
+    flex-direction:column;
+    gap:12px;
+  }
+
+  .row{ display:flex; align-items:center; gap:8px; }
+  .row.wrap{ flex-wrap:wrap; }
+  .grid2{ display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+
+  .field-label{
+    display:flex; justify-content:space-between; align-items:center;
+    font-size:12px; color:var(--text-dim); margin-bottom:2px;
+  }
+  .field-label .val{ font-family:var(--font-mono); color:var(--accent); font-size:11.5px; }
+  input[type="range"]{ width:100%; height:3px; background:var(--border); border-radius:2px; -webkit-appearance:none; }
+  input[type="range"]::-webkit-slider-thumb{
+    -webkit-appearance:none; width:13px; height:13px; border-radius:50%;
+    background:var(--accent); cursor:pointer; border:2px solid #1c1204;
+  }
+  input[type="number"], input[type="text"]{
+    background:var(--bg-deep);
+    border:1px solid var(--border);
+    color:var(--text);
+    padding:6px 8px;
+    border-radius:var(--radius);
+    font-size:12.5px;
+    font-family:var(--font-mono);
+    width:100%;
+  }
+  input[type="color"]{
+    -webkit-appearance:none; appearance:none;
+    width:34px; height:30px; padding:0; border:1px solid var(--border);
+    border-radius:var(--radius); background:none; cursor:pointer;
+  }
+  label.chk{ display:flex; align-items:center; gap:6px; font-size:12px; color:var(--text-dim); cursor:pointer; }
+
+  .btn{
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    gap:8px;
+    min-height:42px;
+    background:var(--bg-deep);
+    border:1px solid var(--border);
+    color:var(--text);
+    padding:9px 12px;
+    border-radius:6px;
+    font-size:12.5px;
+    line-height:1.15;
+    font-family:var(--font-body);
+    cursor:pointer;
+    transition:border-color .15s, color .15s, background .15s, transform .15s;
+    flex:1;
+    text-align:center;
+  }
+  .btn:hover:not(:disabled){ border-color:var(--accent); color:var(--accent); background:rgba(232,161,61,.05); }
+  .btn:active:not(:disabled){ transform:translateY(1px); }
+  .btn:disabled{ opacity:.35; cursor:not-allowed; }
+  .btn.active{ border-color:var(--accent); color:var(--accent); background:rgba(232,161,61,0.08); }
+  .btn.full{ width:100%; }
+  .btn .ui-icon{ flex:0 0 17px; width:17px; height:17px; stroke-width:1.9; }
+  .row .btn{ min-width:0; }
+  .section-body > .row{ width:100%; }
+  .google-open-row{ margin-top:-2px; }
+  .oauth-help{
+    display:flex;
+    gap:10px;
+    align-items:flex-start;
+    padding:11px 12px;
+    border:1px solid var(--border);
+    border-radius:6px;
+    background:linear-gradient(180deg, rgba(255,255,255,.02), rgba(255,255,255,.01));
+  }
+  .oauth-help .help-icon{
+    flex:0 0 20px; width:20px; height:20px; display:grid; place-items:center;
+    border:1px solid var(--border); border-radius:50%; color:var(--accent); font:600 12px/1 var(--font-mono);
+  }
+  .oauth-help strong{display:block; color:var(--text); font-size:12px; margin-bottom:3px;}
+  .oauth-help span{display:block; color:var(--text-faint); line-height:1.45; font-size:11px;}
+  .oauth-status{ min-height:18px; margin-top:2px; }
+  .modal .oauth-actions{ display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:14px; }
+  @media(max-width:520px){ .modal .oauth-actions{ grid-template-columns:1fr; } }
+  .open-picker-btn{ display:none; }
+  .open-picker-btn.show{ display:inline-flex; }
+  .btn.small{ flex:none; padding:6px 9px; font-size:11.5px; }
+
+  .preset-grid{ display:grid; grid-template-columns:1fr 1fr; gap:6px; }
+  .preset-grid button{
+    background:var(--bg-deep);
+    border:1px solid var(--border);
+    color:var(--text-dim);
+    padding:8px 6px;
+    border-radius:var(--radius);
+    font-size:11.5px;
+    font-family:var(--font-mono);
+    cursor:pointer;
+  }
+  .preset-grid button:hover{ border-color:var(--accent); color:var(--accent); }
+
+  .hint{ font-size:11px; color:var(--text-faint); line-height:1.5; }
+
+  /* ---------- canvas stage ---------- */
+  .canvas-stage{
+    flex:1;
+    position:relative;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    background:
+      linear-gradient(var(--bg-deep), var(--bg-deep)),
+      repeating-conic-gradient(#1a1613 0% 25%, #17130f 0% 50%) 50% / 20px 20px;
+    background-blend-mode:normal;
+    padding:34px;
+    min-height:0;
+    overflow:auto;
+  }
+  .sprocket-rail{
+    position:absolute; left:0; right:0; height:14px;
+    display:flex; justify-content:space-evenly; align-items:center;
+    pointer-events:none; opacity:.5;
+  }
+  .sprocket-rail.top{ top:10px; } .sprocket-rail.bottom{ bottom:10px; }
+  .sprocket-rail div{ width:6px; height:6px; border-radius:1px; background:var(--border); }
+
+  .canvas-wrap{
+    position:relative;
+    max-width:100%;
+    max-height:100%;
+    box-shadow:0 0 0 1px var(--border), 0 30px 60px -20px rgba(0,0,0,.7);
+  }
+  #mainCanvas, #overlayCanvas{
+    display:block;
+    max-width:100%;
+    max-height:calc(100vh - 220px);
+  }
+  #overlayCanvas{
+    position:absolute; top:0; left:0;
+    width:100%; height:100%;
+    cursor:crosshair;
+  }
+  .canvas-wrap.mode-idle #overlayCanvas{ cursor:default; pointer-events:none; }
+
+  .empty-state{
+    text-align:center;
+    color:var(--text-dim);
+    max-width:380px;
+    padding:40px 20px;
+    border:1px dashed var(--border);
+    border-radius:6px;
+  }
+  .empty-state .glyph{
+    font-size:34px; color:var(--accent); margin-bottom:14px; font-family:var(--font-display);
+  }
+  .empty-state h2{
+    font-family:var(--font-display); font-size:18px; margin:0 0 8px; color:var(--text);
+  }
+  .empty-state p{ font-size:13px; line-height:1.6; margin:0 0 18px; color:var(--text-dim); }
+  .empty-state .actions{ display:flex; gap:8px; justify-content:center; flex-wrap:wrap; }
+  .drag-active .empty-state{ border-color:var(--accent); background:rgba(232,161,61,0.05); }
+
+  .stage-info{
+    position:absolute; bottom:12px; left:14px;
+    font-family:var(--font-mono); font-size:11px; color:var(--text-faint);
+    pointer-events:none;
+  }
+
+  /* ---------- modal (camera) ---------- */
+  .modal-backdrop{
+    position:fixed; inset:0; background:rgba(10,8,6,0.75);
+    display:flex; align-items:center; justify-content:center;
+    z-index:50; padding:20px;
+  }
+  .modal{
+    background:var(--panel); border:1px solid var(--border);
+    border-radius:6px; padding:16px; width:100%; max-width:520px;
+  }
+  .modal h3{ font-family:var(--font-display); margin:0 0 12px; font-size:15px; }
+  .modal video, .modal canvas{ width:100%; border-radius:4px; background:#000; }
+  .modal .modal-actions{ display:flex; gap:8px; margin-top:12px; }
+
+  /* ---------- toast ---------- */
+  #toast{
+    position:fixed; bottom:18px; right:18px;
+    background:var(--panel); border:1px solid var(--border);
+    color:var(--text); padding:10px 14px; border-radius:var(--radius);
+    font-size:12.5px; font-family:var(--font-mono);
+    box-shadow:0 8px 24px rgba(0,0,0,.4);
+    opacity:0; transform:translateY(6px);
+    transition:opacity .2s, transform .2s;
+    pointer-events:none; z-index:100;
+    border-left:2px solid var(--accent);
+  }
+  #toast.show{ opacity:1; transform:translateY(0); }
+
+  ::-webkit-scrollbar{ width:8px; height:8px; }
+  ::-webkit-scrollbar-track{ background:transparent; }
+  ::-webkit-scrollbar-thumb{ background:var(--border); border-radius:4px; }
+</style>
+</head>
+<body>
+
+<div class="app">
+  <header class="topbar">
+    <div class="brand"><span class="dot">◆</span>IMG29<span class="tagline">// local image editor — nothing saved</span></div>
+    <div class="topbar-actions">
+      <div class="nav-group">
+        <button class="icon-btn compact" id="prevImageBtn" title="Previous image"></button>
+        <span class="image-counter" id="imageCounter">0 / 0</span>
+        <button class="icon-btn compact" id="nextImageBtn" title="Next image"></button>
+      </div>
+      <div class="header-edit">
+        <button class="icon-btn compact" id="sidebarToggleBtn" title="Toggle sidebar"></button>
+        <button class="icon-btn compact" id="headerCropBtn" title="Crop"></button>
+        <button class="icon-btn compact" id="headerRotateBtn" title="Rotate right"></button>
+        <button class="icon-btn compact" id="headerAdjustBtn" title="Open adjustments"></button>
+        <button class="icon-btn compact" id="headerFullscreenBtn" title="Fullscreen"></button>
+      </div>
+      <button class="icon-btn" id="undoBtn" title="Undo"></button>
+      <button class="icon-btn" id="redoBtn" title="Redo"></button>
+      <button class="icon-btn" id="newBtn" title="Start over"></button>
+      <button class="icon-btn primary" id="downloadBtn" disabled></button>
+    </div>
+  </header>
+
+  <main class="workspace">
+    <aside class="toolbar" id="toolbar">
+
+      <details class="section" open>
+        <summary>Open image</summary>
+        <div class="section-body">
+          <div class="row">
+            <button class="btn" id="uploadBtn"></button>
+            <button class="btn" id="bulkUploadBtn"></button>
+            <button class="btn" id="cameraBtn"></button>
+          </div>
+          <div class="row">
+            <button class="btn full" id="googlePhotosBtn"></button>
+          </div>
+          <p class="hint bulk-note">Bulk lets you select multiple image files and edit them one at a time. Use the arrows, thumbnails, swipe, or ←/→ keys to move between images.</p>
+          <p class="hint">Google Photos lets you import images from a public shared-album link.</p>
+          <input type="file" id="fileInput" accept="image/*" hidden>
+          <input type="file" id="bulkFileInput" accept="image/*" multiple hidden>
+        </div>
+      </details>
+
+      <details class="section" id="adjustSection">
+        <summary>Adjust</summary>
+        <div class="section-body">
+          <div>
+            <div class="field-label"><span>Brightness</span><span class="val" id="v-brightness">100</span></div>
+            <input type="range" id="s-brightness" min="0" max="200" value="100">
+          </div>
+          <div>
+            <div class="field-label"><span>Contrast</span><span class="val" id="v-contrast">100</span></div>
+            <input type="range" id="s-contrast" min="0" max="200" value="100">
+          </div>
+          <div>
+            <div class="field-label"><span>Saturation</span><span class="val" id="v-saturate">100</span></div>
+            <input type="range" id="s-saturate" min="0" max="200" value="100">
+          </div>
+          <div>
+            <div class="field-label"><span>Hue</span><span class="val" id="v-hue">0</span></div>
+            <input type="range" id="s-hue" min="-180" max="180" value="0">
+          </div>
+          <div>
+            <div class="field-label"><span>Blur</span><span class="val" id="v-blur">0</span></div>
+            <input type="range" id="s-blur" min="0" max="12" value="0">
+          </div>
+          <div class="row">
+            <button class="btn" id="applyAdjustBtn"></button>
+            <button class="btn" id="resetAdjustBtn">Reset</button>
+          </div>
+        </div>
+      </details>
+
+      <details class="section">
+        <summary>Filters</summary>
+        <div class="section-body">
+          <div class="preset-grid">
+            <button data-preset="none">None</button>
+            <button data-preset="grayscale">Grayscale</button>
+            <button data-preset="sepia">Sepia</button>
+            <button data-preset="invert">Invert</button>
+            <button data-preset="vintage">Vintage</button>
+            <button data-preset="cool">Cool</button>
+            <button data-preset="warm">Warm</button>
+            <button data-preset="noir">High-contrast B&W</button>
+          </div>
+        </div>
+      </details>
+
+      <details class="section">
+        <summary>Transform</summary>
+        <div class="section-body">
+          <div class="row">
+            <button class="btn" id="rotLeftBtn"></button>
+            <button class="btn" id="rotRightBtn"></button>
+          </div>
+          <div class="row">
+            <button class="btn" id="flipHBtn"></button>
+            <button class="btn" id="flipVBtn"></button>
+          </div>
+          <hr style="border:none;border-top:1px solid var(--border); width:100%; margin:2px 0;">
+          <div class="row">
+            <button class="btn" id="cropModeBtn"></button>
+            <button class="btn small" id="cropApplyBtn" disabled>Apply</button>
+            <button class="btn small" id="cropCancelBtn" disabled>Cancel</button>
+          </div>
+          <p class="hint" id="cropHint" style="display:none;">Drag on the image to draw a crop box, then hit Apply.</p>
+          <hr style="border:none;border-top:1px solid var(--border); width:100%; margin:2px 0;">
+          <div class="grid2">
+            <div>
+              <div class="field-label"><span>Width</span></div>
+              <input type="number" id="resizeW" min="1">
+            </div>
+            <div>
+              <div class="field-label"><span>Height</span></div>
+              <input type="number" id="resizeH" min="1">
+            </div>
+          </div>
+          <label class="chk"><input type="checkbox" id="lockAspect" checked> Lock aspect ratio</label>
+          <button class="btn full" id="resizeApplyBtn">Apply resize</button>
+        </div>
+      </details>
+
+      <details class="section">
+        <summary>Draw</summary>
+        <div class="section-body">
+          <div class="row">
+            <button class="btn" id="drawModeBtn"></button>
+            <input type="color" id="drawColor" value="#e8a13d">
+          </div>
+          <div>
+            <div class="field-label"><span>Brush size</span><span class="val" id="v-brushsize">10</span></div>
+            <input type="range" id="s-brushsize" min="1" max="60" value="10">
+          </div>
+          <p class="hint">Turn on Brush, then drag on the image. Click Brush again to turn it off.</p>
+        </div>
+      </details>
+
+      <details class="section">
+        <summary>Text</summary>
+        <div class="section-body">
+          <input type="text" id="textInput" placeholder="Type text, then click the image">
+          <div class="grid2">
+            <div>
+              <div class="field-label"><span>Size</span><span class="val" id="v-textsize">42</span></div>
+              <input type="range" id="s-textsize" min="10" max="160" value="42">
+            </div>
+            <div>
+              <div class="field-label"><span>Color</span></div>
+              <input type="color" id="textColor" value="#f2ede4">
+            </div>
+          </div>
+          <button class="btn full" id="textModeBtn"></button>
+        </div>
+      </details>
+
+      <details class="section">
+        <summary>Export</summary>
+        <div class="section-body">
+          <div class="row">
+            <select id="exportFormat" style="flex:1; background:var(--bg-deep); border:1px solid var(--border); color:var(--text); padding:7px; border-radius:var(--radius); font-family:var(--font-mono); font-size:12px;">
+              <option value="png">PNG</option>
+              <option value="jpeg">JPEG</option>
+            </select>
+          </div>
+          <button class="btn full primary" id="downloadBtn2" disabled style="background:var(--accent); color:#1c1204; border-color:var(--accent); font-weight:600;"></button>
+        </div>
+      </details>
+
+    </aside>
+
+    <section class="canvas-stage" id="stage">
+      <div class="sprocket-rail top" id="railTop"></div>
+      <div class="sprocket-rail bottom" id="railBottom"></div>
+
+      <div class="empty-state" id="emptyState">
+        <div class="glyph">◆</div>
+        <h2>Nothing loaded yet</h2>
+        <p>Drop an image here, paste one from your clipboard, upload a file, or shoot straight from your camera. Everything stays in this tab — closing it clears it for good.</p>
+        <div class="actions">
+          <button class="icon-btn primary" id="emptyUploadBtn"></button>
+          <button class="icon-btn" id="emptyBulkUploadBtn"></button>
+          <button class="icon-btn" id="emptyGooglePhotosBtn"></button>
+          <button class="icon-btn" id="emptyCameraBtn"></button>
+        </div>
+      </div>
+
+      <div class="canvas-wrap mode-idle" id="canvasWrap" style="display:none;">
+        <canvas id="mainCanvas"></canvas>
+        <canvas id="overlayCanvas"></canvas>
+      </div>
+
+      <div class="multi-nav" id="multiNav" style="display:none;">
+        <button class="nav-arrow" id="stagePrevBtn" title="Previous image"></button>
+        <button class="nav-arrow" id="stageNextBtn" title="Next image"></button>
+      </div>
+
+      <div class="thumbnail-strip" id="thumbnailStrip" style="display:none;"></div>
+
+      <div class="zoom-controls" id="zoomControls" style="display:none;">
+        <button id="zoomOutBtn" title="Zoom out"></button>
+        <span class="zoom-label" id="zoomLabel" title="Reset zoom">100%</span>
+        <button id="zoomInBtn" title="Zoom in"></button>
+        <span class="sep"></span>
+        <button id="panBtn" title="Grab &amp; move image"></button>
+      </div>
+
+      <div class="stage-info" id="stageInfo"></div>
+    </section>
+  </main>
+</div>
+
+<div class="modal-backdrop" id="googlePhotosModal" style="display:none;">
+  <div class="modal" style="max-width:600px;">
+    <h3>Google Photos shared album</h3>
+    <p class="hint" style="margin-top:0;">
+      Paste a public Google Photos shared-album link. img29 will read the album and import its images into this editor.
+    </p>
+
+    <div style="display:flex;flex-direction:column;gap:7px;">
+      <label class="field-label" for="googlePhotosUrl">Shared album link</label>
+      <input
+        type="url"
+        id="googlePhotosUrl"
+        placeholder="https://photos.app.goo.gl/X35fp9p2DDiDUuE76"
+        autocomplete="off"
+        spellcheck="false"
+        inputmode="url"
+      >
+    </div>
+
+    <div id="googlePhotosStatus" class="hint oauth-status"></div>
+
+    <div class="oauth-actions">
+      <button class="btn full primary" id="googlePhotosStartBtn"></button>
+      <button class="btn full" id="googlePhotosCancelBtn"></button>
+    </div>
+
+    <p class="hint" style="margin:12px 0 0;">
+      Only publicly accessible shared-album links work. The link is sent to img29's Vercel API route to resolve the album images; the editor itself keeps the imported images in browser memory.
+    </p>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<div class="modal-backdrop" id="cameraModal" style="display:none;">
+  <div class="modal">
+    <h3>Camera</h3>
+    <video id="camVideo" autoplay playsinline></video>
+    <div class="modal-actions">
+      <button class="btn full" id="camCaptureBtn"></button>
+      <button class="btn full" id="camCancelBtn">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  function icon(name, label=''){
+    const paths = {
+      prev:'<path d="M15 18 9 12l6-6"/>', next:'<path d="m9 18 6-6-6-6"/>',
+      crop:'<path d="M6 2v4H2m20 16h-4v-4M18 6h4v4M6 18H2v-4"/><rect x="6" y="6" width="12" height="12" rx="1"/>',
+      rotate:'<path d="M20 11a8 8 0 0 0-14.7-3.9L3 10"/><path d="M3 5v5h5"/><path d="M4 13a8 8 0 0 0 14.7 3.9L21 14"/><path d="M21 19v-5h-5"/>',
+      adjust:'<path d="M4 6h16M7 12h10M10 18h4"/><circle cx="9" cy="6" r="2"/><circle cx="15" cy="12" r="2"/><circle cx="12" cy="18" r="2"/>',
+      fullscreen:'<path d="M8 3H3v5M16 3h5v5M21 16v5h-5M3 16v5h5"/>',
+      undo:'<path d="M9 14 4 9l5-5"/><path d="M4 9h9a7 7 0 0 1 7 7v1"/>',
+      redo:'<path d="m15 14 5-5-5-5"/><path d="M20 9h-9a7 7 0 0 0-7 7v1"/>',
+      close:'<path d="m6 6 12 12M18 6 6 18"/>', download:'<path d="M12 3v11"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/>',
+      upload:'<path d="M12 16V4"/><path d="m7 9 5-5 5 5"/><path d="M5 20h14"/>', camera:'<path d="M4 7h4l1.5-2h5L16 7h4v11H4z"/><circle cx="12" cy="12.5" r="3.2"/>',
+      photos:'<rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="8" cy="9" r="1.5"/><path d="m4 17 5-5 3 3 2-2 6 4"/>',
+      brush:'<path d="m14 4 6 6"/><path d="M5 19c2.5.5 4.5-.5 5.8-1.8L19 9l-6-6-8.2 8.2C3.5 12.5 2.5 15 3 17c.3 1 1 1.7 2 2Z"/><path d="M3 21c2.5-1 4.5-1 6 0"/>',
+      flipH:'<path d="M12 3v18"/><path d="m8 7-4 5 4 5"/><path d="m16 7 4 5-4 5"/>', flipV:'<path d="M3 12h18"/><path d="m7 8 5-4 5 4"/><path d="m7 16 5 4 5-4"/>',
+      text:'<path d="M5 5h14M12 5v14M8 19h8"/>', check:'<path d="m5 12 4 4L19 6"/>',
+      sidebar:'<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16"/>',
+      zoomIn:'<circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/><path d="M11 8v6M8 11h6"/>',
+      zoomOut:'<circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/><path d="M8 11h6"/>',
+      hand:'<path d="M18 11V6a2 2 0 0 0-4 0v5"/><path d="M14 10V4a2 2 0 0 0-4 0v7"/><path d="M10 10.5V6a2 2 0 0 0-4 0v8"/><path d="M6 14v0a8 8 0 0 0 8 8h1a7 7 0 0 0 7-7v-3a2 2 0 0 0-4 0"/>'
+    };
+    return `<svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">${paths[name]||''}</svg>${label?`<span>${label}</span>`:''}`;
+  }
+
+  // ---------- element refs ----------
+  const stage = document.getElementById('stage');
+  const emptyState = document.getElementById('emptyState');
+  const canvasWrap = document.getElementById('canvasWrap');
+  const mainCanvas = document.getElementById('mainCanvas');
+  const overlayCanvas = document.getElementById('overlayCanvas');
+  const ctx = mainCanvas.getContext('2d');
+  const octx = overlayCanvas.getContext('2d');
+  const stageInfo = document.getElementById('stageInfo');
+  const toastEl = document.getElementById('toast');
+
+  const fileInput = document.getElementById('fileInput');
+  const bulkFileInput = document.getElementById('bulkFileInput');
+  const uploadBtn = document.getElementById('uploadBtn');
+  const bulkUploadBtn = document.getElementById('bulkUploadBtn');
+  const emptyUploadBtn = document.getElementById('emptyUploadBtn');
+  const emptyBulkUploadBtn = document.getElementById('emptyBulkUploadBtn');
+  const cameraBtn = document.getElementById('cameraBtn');
+  const emptyCameraBtn = document.getElementById('emptyCameraBtn');
+
+  const undoBtn = document.getElementById('undoBtn');
+  const redoBtn = document.getElementById('redoBtn');
+  const newBtn = document.getElementById('newBtn');
+  const downloadBtn = document.getElementById('downloadBtn');
+  const downloadBtn2 = document.getElementById('downloadBtn2');
+  const exportFormat = document.getElementById('exportFormat');
+
+  const prevImageBtn = document.getElementById('prevImageBtn');
+  const nextImageBtn = document.getElementById('nextImageBtn');
+  const imageCounter = document.getElementById('imageCounter');
+  const headerCropBtn = document.getElementById('headerCropBtn');
+  const headerRotateBtn = document.getElementById('headerRotateBtn');
+  const headerAdjustBtn = document.getElementById('headerAdjustBtn');
+  const headerFullscreenBtn = document.getElementById('headerFullscreenBtn');
+  const sidebarToggleBtn = document.getElementById('sidebarToggleBtn');
+
+  const zoomControls = document.getElementById('zoomControls');
+  const zoomInBtn = document.getElementById('zoomInBtn');
+  const zoomOutBtn = document.getElementById('zoomOutBtn');
+  const zoomLabel = document.getElementById('zoomLabel');
+  const panBtn = document.getElementById('panBtn');
+
+  const multiNav = document.getElementById('multiNav');
+  const stagePrevBtn = document.getElementById('stagePrevBtn');
+  const stageNextBtn = document.getElementById('stageNextBtn');
+  const thumbnailStrip = document.getElementById('thumbnailStrip');
+
+  // adjust sliders
+  const sliders = ['brightness','contrast','saturate','hue','blur'].map(k=>({
+    key:k, el: document.getElementById('s-'+k), val: document.getElementById('v-'+k)
+  }));
+  const applyAdjustBtn = document.getElementById('applyAdjustBtn');
+  const resetAdjustBtn = document.getElementById('resetAdjustBtn');
+
+  const rotLeftBtn = document.getElementById('rotLeftBtn');
+  const rotRightBtn = document.getElementById('rotRightBtn');
+  const flipHBtn = document.getElementById('flipHBtn');
+  const flipVBtn = document.getElementById('flipVBtn');
+
+  const cropModeBtn = document.getElementById('cropModeBtn');
+  const cropApplyBtn = document.getElementById('cropApplyBtn');
+  const cropCancelBtn = document.getElementById('cropCancelBtn');
+  const cropHint = document.getElementById('cropHint');
+
+  const resizeW = document.getElementById('resizeW');
+  const resizeH = document.getElementById('resizeH');
+  const lockAspect = document.getElementById('lockAspect');
+  const resizeApplyBtn = document.getElementById('resizeApplyBtn');
+
+  const drawModeBtn = document.getElementById('drawModeBtn');
+  const drawColor = document.getElementById('drawColor');
+  const brushSize = document.getElementById('s-brushsize');
+  const brushSizeVal = document.getElementById('v-brushsize');
+
+  const textInput = document.getElementById('textInput');
+  const textModeBtn = document.getElementById('textModeBtn');
+  const textSize = document.getElementById('s-textsize');
+  const textSizeVal = document.getElementById('v-textsize');
+  const textColor = document.getElementById('textColor');
+
+  const cameraModal = document.getElementById('cameraModal');
+  const camVideo = document.getElementById('camVideo');
+  const camCaptureBtn = document.getElementById('camCaptureBtn');
+  const camCancelBtn = document.getElementById('camCancelBtn');
+
+  const googlePhotosBtn = document.getElementById('googlePhotosBtn');
+  const emptyGooglePhotosBtn = document.getElementById('emptyGooglePhotosBtn');
+  const googlePhotosModal = document.getElementById('googlePhotosModal');
+  const googlePhotosStatus = document.getElementById('googlePhotosStatus');
+  const googlePhotosUrl = document.getElementById('googlePhotosUrl');
+  const googlePhotosStartBtn = document.getElementById('googlePhotosStartBtn');
+  const googlePhotosCancelBtn = document.getElementById('googlePhotosCancelBtn');
+
+  googlePhotosStartBtn.innerHTML = icon('photos','Fetch images');
+  googlePhotosCancelBtn.innerHTML = icon('close','Cancel');
+
+  const iconLabels = {
+    prevImageBtn:['prev',''], nextImageBtn:['next',''], headerCropBtn:['crop',''], headerRotateBtn:['rotate',''], headerAdjustBtn:['adjust',''], headerFullscreenBtn:['fullscreen',''],
+    undoBtn:['undo','Undo'], redoBtn:['redo','Redo'], newBtn:['close','New'], downloadBtn:['download','Export'], uploadBtn:['upload','Single'], bulkUploadBtn:['upload','Bulk'], cameraBtn:['camera','Camera'],
+    googlePhotosBtn:['photos','Google Photos link'], rotLeftBtn:['rotate','Rotate L'], rotRightBtn:['rotate','Rotate R'], flipHBtn:['flipH','Flip H'], flipVBtn:['flipV','Flip V'], cropModeBtn:['crop','Crop'],
+    drawModeBtn:['brush','Brush'], textModeBtn:['text','Place text'], downloadBtn2:['download','Download image'], stagePrevBtn:['prev',''], stageNextBtn:['next',''], emptyUploadBtn:['upload','Upload image'],
+    emptyBulkUploadBtn:['upload','Bulk images'], emptyGooglePhotosBtn:['photos','Google Photos link'], emptyCameraBtn:['camera','Use camera'], applyAdjustBtn:['check','Apply'], camCaptureBtn:['camera','Capture'],
+    sidebarToggleBtn:['sidebar',''], zoomInBtn:['zoomIn',''], zoomOutBtn:['zoomOut',''], panBtn:['hand','']
+  };
+  Object.entries(iconLabels).forEach(([id,spec])=>{ const el=document.getElementById(id); if(el) el.innerHTML=icon(spec[0],spec[1]); });
+
+  // ---------- state ----------
+  const MAX_DIM = 2400;
+  const HISTORY_CAP = 30;
+
+  let baseCanvas = document.createElement('canvas');
+  let baseCtx = baseCanvas.getContext('2d');
+  let hasImage = false;
+
+  // Multi-image workspace. Each item stores its original source and its current editor canvas.
+  let imageItems = [];
+  let activeImageIndex = -1;
+  let swipeStartX = null;
+  let swipeStartY = null;
+
+  let filterState = { brightness:100, contrast:100, saturate:100, hue:0, blur:0 };
+
+  let history = [];
+  let histIndex = -1;
+
+  let mode = 'idle'; // idle | crop | draw | text
+  let camStream = null;
+
+  // ---------- zoom state ----------
+  let zoomLevel = 1;
+  const ZOOM_MIN = 0.25, ZOOM_MAX = 4, ZOOM_STEP = 0.25;
+
+  const GOOGLE_PHOTOS_API = '/api/google-photos';
+  const GOOGLE_PHOTOS_IMAGE_API = '/api/google-photos-image';
+  let googleAlbumItems = [];
+
+  let cropRect = null; // {x,y,w,h} in canvas pixel space
+  let cropDragStart = null;
+
+  let drawing = false;
+  let lastPt = null;
+
+  // ---------- helpers ----------
+  let toastTimer = null;
+  function toast(msg){
+    toastEl.textContent = msg;
+    toastEl.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(()=> toastEl.classList.remove('show'), 2200);
+  }
+
+  function filterString(f){
+    return `brightness(${f.brightness}%) contrast(${f.contrast}%) saturate(${f.saturate}%) hue-rotate(${f.hue}deg) blur(${f.blur}px)`;
+  }
+
+  function syncCanvasSizes(){
+    overlayCanvas.width = mainCanvas.width;
+    overlayCanvas.height = mainCanvas.height;
+  }
+
+  function render(){
+    if(!hasImage) return;
+    ctx.save();
+    ctx.clearRect(0,0,mainCanvas.width, mainCanvas.height);
+    ctx.filter = filterString(filterState);
+    ctx.drawImage(baseCanvas, 0, 0);
+    ctx.restore();
+    stageInfo.textContent = `${baseCanvas.width} × ${baseCanvas.height}px`;
+  }
+
+  function setBase(canvasSrc){
+    baseCanvas.width = canvasSrc.width;
+    baseCanvas.height = canvasSrc.height;
+    baseCtx.clearRect(0,0,baseCanvas.width, baseCanvas.height);
+    baseCtx.drawImage(canvasSrc, 0, 0);
+    mainCanvas.width = baseCanvas.width;
+    mainCanvas.height = baseCanvas.height;
+    syncCanvasSizes();
+    resizeW.value = baseCanvas.width;
+    resizeH.value = baseCanvas.height;
+    render();
+
+    if(activeImageIndex >= 0 && imageItems[activeImageIndex]){
+      imageItems[activeImageIndex].dataURL = baseCanvas.toDataURL('image/png');
+      imageItems[activeImageIndex].width = baseCanvas.width;
+      imageItems[activeImageIndex].height = baseCanvas.height;
+      rebuildThumbnail(imageItems[activeImageIndex]);
+    }
+  }
+
+  function bake(){
+    if(!hasImage) return;
+    const tmp = document.createElement('canvas');
+    tmp.width = baseCanvas.width; tmp.height = baseCanvas.height;
+    const tctx = tmp.getContext('2d');
+    tctx.filter = filterString(filterState);
+    tctx.drawImage(baseCanvas, 0, 0);
+    baseCanvas = tmp;
+    baseCtx = baseCanvas.getContext('2d');
+    resetFilterUI(false);
+    render();
+  }
+
+  function resetFilterUI(doRender){
+    filterState = { brightness:100, contrast:100, saturate:100, hue:0, blur:0 };
+    sliders.forEach(s=>{ s.el.value = filterState[s.key]; s.val.textContent = filterState[s.key]; });
+    if(doRender!==false) render();
+  }
+
+  function pushHistory(){
+    history = history.slice(0, histIndex+1);
+    history.push(baseCanvas.toDataURL('image/png'));
+    if(history.length > HISTORY_CAP) history.shift();
+    histIndex = history.length - 1;
+    updateHistoryButtons();
+  }
+
+  function loadFromHistory(dataURL, cb){
+    const img = new Image();
+    img.onload = ()=>{
+      baseCanvas = document.createElement('canvas');
+      baseCanvas.width = img.width; baseCanvas.height = img.height;
+      baseCtx = baseCanvas.getContext('2d');
+      baseCtx.drawImage(img,0,0);
+      mainCanvas.width = baseCanvas.width;
+      mainCanvas.height = baseCanvas.height;
+      syncCanvasSizes();
+      resizeW.value = baseCanvas.width;
+      resizeH.value = baseCanvas.height;
+      resetFilterUI(false);
+      render();
+      if(cb) cb();
+    };
+    img.src = dataURL;
+  }
+
+  function undo(){
+    if(histIndex<=0) return;
+    histIndex--;
+    loadFromHistory(history[histIndex]);
+    updateHistoryButtons();
+    toast('Undid last change');
+  }
+  function redo(){
+    if(histIndex>=history.length-1) return;
+    histIndex++;
+    loadFromHistory(history[histIndex]);
+    updateHistoryButtons();
+    toast('Redone');
+  }
+  function updateHistoryButtons(){
+    undoBtn.disabled = histIndex<=0;
+    redoBtn.disabled = histIndex>=history.length-1;
+  }
+
+  function enterEditor(){
+    if(!hasImage){
+      hasImage = true;
+      emptyState.style.display = 'none';
+      canvasWrap.style.display = 'block';
+      downloadBtn.disabled = false;
+      downloadBtn2.disabled = false;
+      zoomControls.style.display = 'flex';
+    }
+  }
+
+  // ---------- zoom ----------
+  function applyZoom(){
+    canvasWrap.style.transform = zoomLevel===1 ? '' : `scale(${zoomLevel})`;
+    zoomLabel.textContent = Math.round(zoomLevel*100) + '%';
+    zoomOutBtn.disabled = zoomLevel<=ZOOM_MIN;
+    zoomInBtn.disabled = zoomLevel>=ZOOM_MAX;
+  }
+  function setZoom(z){
+    zoomLevel = Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, Math.round(z*100)/100));
+    applyZoom();
+  }
+  function resetZoom(){ setZoom(1); setPanMode(false); }
+  zoomInBtn.addEventListener('click', ()=> setZoom(zoomLevel + ZOOM_STEP));
+  zoomOutBtn.addEventListener('click', ()=> setZoom(zoomLevel - ZOOM_STEP));
+  zoomLabel.addEventListener('click', resetZoom);
+  stage.addEventListener('wheel', (e)=>{
+    if(!hasImage || !e.ctrlKey) return;
+    e.preventDefault();
+    setZoom(zoomLevel + (e.deltaY < 0 ? ZOOM_STEP : -ZOOM_STEP));
+  }, {passive:false});
+  applyZoom();
+
+  // ---------- grab-to-pan ----------
+  let panMode = false;
+  let panDrag = null; // {startX, startY, scrollL, scrollT}
+  function setPanMode(on){
+    panMode = on && hasImage;
+    stage.classList.toggle('pan-mode', panMode);
+    panBtn.classList.toggle('active', panMode);
+  }
+  panBtn.addEventListener('click', ()=> setPanMode(!panMode));
+  stage.addEventListener('pointerdown', (e)=>{
+    if(!panMode) return;
+    panDrag = { id:e.pointerId, startX:e.clientX, startY:e.clientY, scrollL:stage.scrollLeft, scrollT:stage.scrollTop };
+    stage.classList.add('panning');
+    stage.setPointerCapture(e.pointerId);
+  });
+  stage.addEventListener('pointermove', (e)=>{
+    if(!panDrag || panDrag.id!==e.pointerId) return;
+    stage.scrollLeft = panDrag.scrollL - (e.clientX - panDrag.startX);
+    stage.scrollTop = panDrag.scrollT - (e.clientY - panDrag.startY);
+  });
+  function endPan(e){
+    if(panDrag){ stage.classList.remove('panning'); panDrag = null; }
+  }
+  stage.addEventListener('pointerup', endPan);
+  stage.addEventListener('pointercancel', endPan);
+
+  // ---------- sidebar collapse ----------
+  sidebarToggleBtn.addEventListener('click', ()=>{
+    document.querySelector('.app').classList.toggle('sidebar-collapsed');
+    sidebarToggleBtn.classList.toggle('active');
+  });
+
+  function loadImageSource(imgOrCanvas, srcW, srcH){
+    // scale down if too large
+    let w = srcW, h = srcH;
+    const longest = Math.max(w,h);
+    if(longest > MAX_DIM){
+      const scale = MAX_DIM/longest;
+      w = Math.round(w*scale); h = Math.round(h*scale);
+    }
+    const tmp = document.createElement('canvas');
+    tmp.width = w; tmp.height = h;
+    tmp.getContext('2d').drawImage(imgOrCanvas, 0, 0, w, h);
+
+    enterEditor();
+    setMode('idle');
+    resetFilterUI(false);
+    setBase(tmp);
+    history = []; histIndex = -1;
+    pushHistory();
+    resetZoom();
+    toast('Image loaded');
+  }
+
+  function loadFromFile(file){
+    if(!file || !file.type.startsWith('image/')) { toast('That is not an image'); return; }
+    addFilesToWorkspace([file]);
+  }
+
+
+  // ---------- multi-image workspace ----------
+  function captureCanvasDataURL(){
+    return baseCanvas.toDataURL('image/png');
+  }
+
+  function syncActiveImageToList(){
+    if(activeImageIndex < 0 || !imageItems[activeImageIndex] || !hasImage) return;
+
+    // Commit any live slider filter before leaving the current image.
+    const hasPendingFilter =
+      filterState.brightness !== 100 ||
+      filterState.contrast !== 100 ||
+      filterState.saturate !== 100 ||
+      filterState.hue !== 0 ||
+      filterState.blur !== 0;
+
+    if(hasPendingFilter) bake();
+
+    imageItems[activeImageIndex].dataURL = captureCanvasDataURL();
+    imageItems[activeImageIndex].width = baseCanvas.width;
+    imageItems[activeImageIndex].height = baseCanvas.height;
+    rebuildThumbnail(imageItems[activeImageIndex]);
+  }
+
+  function createImageItemFromCanvas(canvas, name){
+    const c = document.createElement('canvas');
+    c.width = canvas.width;
+    c.height = canvas.height;
+    c.getContext('2d').drawImage(canvas, 0, 0);
+    return {
+      id: crypto.randomUUID ? crypto.randomUUID() : String(Date.now() + Math.random()),
+      name: name || `image-${imageItems.length + 1}`,
+      dataURL: c.toDataURL('image/png'),
+      width: c.width,
+      height: c.height,
+      thumbnail: c.toDataURL('image/jpeg', 0.78)
+    };
+  }
+
+  function rebuildThumbnail(item){
+    if(!item.dataURL) return;
+    const img = new Image();
+    img.onload = ()=>{
+      const c = document.createElement('canvas');
+      const maxW = 156, maxH = 112;
+      const scale = Math.min(maxW / img.width, maxH / img.height, 1);
+      c.width = Math.max(1, Math.round(img.width * scale));
+      c.height = Math.max(1, Math.round(img.height * scale));
+      c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+      item.thumbnail = c.toDataURL('image/jpeg', 0.78);
+      renderThumbnailStrip();
+    };
+    img.src = item.dataURL;
+  }
+
+  function updateImageControls(){
+    const count = imageItems.length;
+    const active = activeImageIndex >= 0 ? activeImageIndex + 1 : 0;
+    imageCounter.textContent = `${active} / ${count}`;
+    const canPrev = activeImageIndex > 0;
+    const canNext = activeImageIndex >= 0 && activeImageIndex < count - 1;
+
+    prevImageBtn.disabled = !canPrev;
+    nextImageBtn.disabled = !canNext;
+    stagePrevBtn.disabled = !canPrev;
+    stageNextBtn.disabled = !canNext;
+
+    const show = count > 1 && hasImage;
+    multiNav.style.display = show ? 'flex' : 'none';
+    thumbnailStrip.style.display = show ? 'flex' : 'none';
+  }
+
+  function renderThumbnailStrip(){
+    thumbnailStrip.innerHTML = '';
+    imageItems.forEach((item, index)=>{
+      const btn = document.createElement('button');
+      btn.className = 'thumb' + (index === activeImageIndex ? ' active' : '');
+      btn.title = item.name || `Image ${index + 1}`;
+      btn.type = 'button';
+
+      const img = document.createElement('img');
+      img.alt = '';
+      img.src = item.thumbnail || item.dataURL;
+      btn.appendChild(img);
+      btn.addEventListener('click', ()=> switchToImage(index));
+      thumbnailStrip.appendChild(btn);
+    });
+    updateImageControls();
+  }
+
+  function loadItemIntoEditor(item, index){
+    const img = new Image();
+    img.onload = ()=>{
+      const c = document.createElement('canvas');
+      c.width = img.width;
+      c.height = img.height;
+      c.getContext('2d').drawImage(img, 0, 0);
+
+      enterEditor();
+      setMode('idle');
+      resetFilterUI(false);
+      setBase(c);
+
+      history = [];
+      histIndex = -1;
+      pushHistory();
+
+      activeImageIndex = index;
+      hasImage = true;
+      resetZoom();
+      renderThumbnailStrip();
+      updateImageControls();
+      stageInfo.textContent = `${baseCanvas.width} × ${baseCanvas.height}px • ${item.name || `Image ${index+1}`}`;
+    };
+    img.onerror = ()=>toast(`Could not load ${item.name || 'image'}`);
+    img.src = item.dataURL;
+  }
+
+  function switchToImage(index){
+    if(index < 0 || index >= imageItems.length || index === activeImageIndex) return;
+
+    syncActiveImageToList();
+    activeImageIndex = index;
+    loadItemIntoEditor(imageItems[index], index);
+    setMode('idle');
+    renderThumbnailStrip();
+  }
+
+  function navigateImage(delta){
+    if(!imageItems.length) return;
+    const next = activeImageIndex + delta;
+    if(next < 0 || next >= imageItems.length) return;
+    switchToImage(next);
+  }
+
+  function addCanvasToWorkspace(canvas, name){
+    const item = createImageItemFromCanvas(canvas, name);
+    imageItems.push(item);
+    activeImageIndex = imageItems.length - 1;
+    loadItemIntoEditor(item, activeImageIndex);
+  }
+
+  async function addFilesToWorkspace(files){
+    const valid = Array.from(files || []).filter(file =>
+      file && file.type && file.type.startsWith('image/')
+    );
+    if(!valid.length){
+      toast('No image files selected');
+      return;
+    }
+
+    const startIndex = imageItems.length;
+    for(let i = 0; i < valid.length; i++){
+      const file = valid[i];
+      await new Promise(resolve=>{
+        const img = new Image();
+        const url = URL.createObjectURL(file);
+        img.onload = ()=>{
+          let w = img.naturalWidth, h = img.naturalHeight;
+          const longest = Math.max(w,h);
+          if(longest > MAX_DIM){
+            const scale = MAX_DIM / longest;
+            w = Math.round(w * scale);
+            h = Math.round(h * scale);
+          }
+
+          const c = document.createElement('canvas');
+          c.width = w;
+          c.height = h;
+          c.getContext('2d').drawImage(img, 0, 0, w, h);
+
+          const item = createImageItemFromCanvas(c, file.name);
+          imageItems.push(item);
+          URL.revokeObjectURL(url);
+          resolve();
+        };
+        img.onerror = ()=>{
+          URL.revokeObjectURL(url);
+          resolve();
+        };
+        img.src = url;
+      });
+    }
+
+    if(imageItems.length){
+      activeImageIndex = Math.min(startIndex, imageItems.length - 1);
+      loadItemIntoEditor(imageItems[activeImageIndex], activeImageIndex);
+      renderThumbnailStrip();
+      toast(valid.length === 1 ? 'Image loaded' : `${valid.length} images loaded`);
+    }
+  }
+
+  function clearWorkspace(){
+    imageItems = [];
+    activeImageIndex = -1;
+    hasImage = false;
+    emptyState.style.display = '';
+    canvasWrap.style.display = 'none';
+    downloadBtn.disabled = true;
+    downloadBtn2.disabled = true;
+    zoomControls.style.display = 'none';
+    resetZoom();
+    updateImageControls();
+    renderThumbnailStrip();
+  }
+
+  function toggleFullscreen(){
+    document.body.classList.toggle('fullscreen-active');
+    if(document.body.classList.contains('fullscreen-active')){
+      if(!document.fullscreenElement && document.documentElement.requestFullscreen){
+        document.documentElement.requestFullscreen().catch(()=>{});
+      }
+      headerFullscreenBtn.textContent = '⛶';
+      headerFullscreenBtn.title = 'Exit fullscreen';
+      toast('Fullscreen enabled');
+    }else{
+      if(document.fullscreenElement && document.exitFullscreen){
+        document.exitFullscreen().catch(()=>{});
+      }
+      headerFullscreenBtn.textContent = '⛶';
+      headerFullscreenBtn.title = 'Fullscreen';
+      toast('Fullscreen disabled');
+    }
+  }
+
+  document.addEventListener('fullscreenchange', ()=>{
+    if(!document.fullscreenElement && document.body.classList.contains('fullscreen-active')){
+      document.body.classList.remove('fullscreen-active');
+    }
+  });
+
+  // ---------- mode handling ----------
+  function setMode(next){
+    mode = next;
+    if(next !== 'idle') setPanMode(false);
+    canvasWrap.classList.toggle('mode-idle', mode==='idle');
+    overlayCanvas.style.cursor = mode==='draw' ? 'crosshair' : (mode==='crop' ? 'crosshair' : (mode==='text' ? 'text' : 'default'));
+    drawModeBtn.classList.toggle('active', mode==='draw');
+    cropModeBtn.classList.toggle('active', mode==='crop');
+    textModeBtn.classList.toggle('active', mode==='text');
+    cropApplyBtn.disabled = !(mode==='crop' && cropRect);
+    cropCancelBtn.disabled = mode!=='crop';
+    cropHint.style.display = mode==='crop' ? 'block' : 'none';
+    if(mode!=='crop'){ cropRect=null; octx.clearRect(0,0,overlayCanvas.width, overlayCanvas.height); }
+  }
+
+  function canvasCoords(e){
+    const rect = mainCanvas.getBoundingClientRect();
+    const scaleX = mainCanvas.width / rect.width;
+    const scaleY = mainCanvas.height / rect.height;
+    const cx = (e.clientX!==undefined ? e.clientX : e.touches[0].clientX) - rect.left;
+    const cy = (e.clientY!==undefined ? e.clientY : e.touches[0].clientY) - rect.top;
+    return { x: Math.max(0, Math.min(mainCanvas.width, cx*scaleX)), y: Math.max(0, Math.min(mainCanvas.height, cy*scaleY)) };
+  }
+
+  function drawCropOverlay(r){
+    octx.clearRect(0,0,overlayCanvas.width, overlayCanvas.height);
+    octx.fillStyle = 'rgba(0,0,0,0.55)';
+    octx.fillRect(0,0,overlayCanvas.width, overlayCanvas.height);
+    octx.clearRect(r.x, r.y, r.w, r.h);
+    octx.strokeStyle = '#e8a13d';
+    octx.lineWidth = Math.max(1, overlayCanvas.width*0.0015);
+    octx.setLineDash([6,4]);
+    octx.strokeRect(r.x, r.y, r.w, r.h);
+    octx.setLineDash([]);
+  }
+
+  function normRect(a,b){
+    const x = Math.min(a.x,b.x), y = Math.min(a.y,b.y);
+    const w = Math.abs(a.x-b.x), h = Math.abs(a.y-b.y);
+    return {x,y,w,h};
+  }
+
+  overlayCanvas.addEventListener('pointerdown', (e)=>{
+    if(!hasImage) return;
+    const p = canvasCoords(e);
+    if(mode==='crop'){
+      cropDragStart = p;
+      cropRect = {x:p.x,y:p.y,w:0,h:0};
+      overlayCanvas.setPointerCapture(e.pointerId);
+    } else if(mode==='draw'){
+      drawing = true;
+      lastPt = p;
+      octx.strokeStyle = drawColor.value;
+      octx.lineWidth = parseInt(brushSize.value,10);
+      octx.lineCap = 'round';
+      octx.lineJoin = 'round';
+      overlayCanvas.setPointerCapture(e.pointerId);
+    } else if(mode==='text'){
+      const txt = textInput.value.trim();
+      if(!txt){ toast('Type some text first'); return; }
+      baseCtx.font = `600 ${textSize.value}px ${getComputedStyle(document.documentElement).getPropertyValue('--font-display') || 'sans-serif'}`;
+      baseCtx.fillStyle = textColor.value;
+      baseCtx.textBaseline = 'middle';
+      bake(); // commit any pending filter first so text sits on top visually consistent
+      baseCtx.fillText(txt, p.x, p.y);
+      render();
+      pushHistory();
+      toast('Text placed');
+    }
+  });
+
+  overlayCanvas.addEventListener('pointermove', (e)=>{
+    if(!hasImage) return;
+    if(mode==='crop' && cropDragStart){
+      const p = canvasCoords(e);
+      cropRect = normRect(cropDragStart, p);
+      drawCropOverlay(cropRect);
+      cropApplyBtn.disabled = !(cropRect.w>2 && cropRect.h>2);
+    } else if(mode==='draw' && drawing){
+      const p = canvasCoords(e);
+      octx.beginPath();
+      octx.moveTo(lastPt.x, lastPt.y);
+      octx.lineTo(p.x, p.y);
+      octx.stroke();
+      lastPt = p;
+    }
+  });
+
+  function endDraw(){
+    if(mode==='draw' && drawing){
+      drawing = false;
+      bake(); // commit filters so overlay merges onto true pixels
+      baseCtx.drawImage(overlayCanvas, 0, 0);
+      octx.clearRect(0,0,overlayCanvas.width, overlayCanvas.height);
+      render();
+      pushHistory();
+    }
+  }
+  function endCropDrag(){
+    // Without this, cropDragStart stayed set after mouseup and the crop
+    // box kept resizing on any subsequent mouse movement, not just drags.
+    if(mode==='crop' && cropDragStart){
+      cropDragStart = null;
+    }
+  }
+  overlayCanvas.addEventListener('pointerup', (e)=>{ endDraw(); endCropDrag(); });
+  overlayCanvas.addEventListener('pointercancel', (e)=>{ endDraw(); endCropDrag(); });
+  overlayCanvas.addEventListener('pointerleave', ()=>{ if(mode==='draw' && drawing) endDraw(); });
+
+  cropModeBtn.addEventListener('click', ()=>{
+    setMode(mode==='crop' ? 'idle' : 'crop');
+  });
+  cropCancelBtn.addEventListener('click', ()=> setMode('idle'));
+  cropApplyBtn.addEventListener('click', ()=>{
+    if(!cropRect || cropRect.w<2 || cropRect.h<2) return;
+    bake();
+    const tmp = document.createElement('canvas');
+    tmp.width = Math.round(cropRect.w); tmp.height = Math.round(cropRect.h);
+    tmp.getContext('2d').drawImage(baseCanvas, cropRect.x, cropRect.y, cropRect.w, cropRect.h, 0, 0, tmp.width, tmp.height);
+    setBase(tmp);
+    pushHistory();
+    setMode('idle');
+    toast('Crop applied');
+  });
+
+  drawModeBtn.addEventListener('click', ()=>{
+    setMode(mode==='draw' ? 'idle' : 'draw');
+  });
+  textModeBtn.addEventListener('click', ()=>{
+    setMode(mode==='text' ? 'idle' : 'text');
+  });
+  brushSize.addEventListener('input', ()=> brushSizeVal.textContent = brushSize.value);
+  textSize.addEventListener('input', ()=> textSizeVal.textContent = textSize.value);
+
+  // ---------- adjust sliders ----------
+  sliders.forEach(s=>{
+    s.el.addEventListener('input', ()=>{
+      filterState[s.key] = Number(s.el.value);
+      s.val.textContent = s.el.value;
+      render();
+    });
+  });
+  applyAdjustBtn.addEventListener('click', ()=>{
+    if(!hasImage) return;
+    bake();
+    pushHistory();
+    toast('Adjustments applied');
+  });
+  resetAdjustBtn.addEventListener('click', ()=> resetFilterUI(true));
+
+  // ---------- presets ----------
+  document.querySelectorAll('.preset-grid button').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      if(!hasImage){ toast('Load an image first'); return; }
+      const p = btn.dataset.preset;
+      const presets = {
+        none:    {brightness:100, contrast:100, saturate:100, hue:0, blur:0},
+        grayscale:{brightness:100, contrast:105, saturate:0,   hue:0, blur:0},
+        sepia:   {brightness:103, contrast:100, saturate:75,  hue:0, blur:0}, // approximated with hue tweak below
+        invert:  {brightness:100, contrast:100, saturate:100, hue:180, blur:0},
+        vintage: {brightness:105, contrast:90,  saturate:80,  hue:-5, blur:0},
+        cool:    {brightness:102, contrast:102, saturate:110, hue:-18, blur:0},
+        warm:    {brightness:103, contrast:100, saturate:115, hue:14, blur:0},
+        noir:    {brightness:105, contrast:145, saturate:0,   hue:0, blur:0}
+      };
+      filterState = Object.assign({brightness:100,contrast:100,saturate:100,hue:0,blur:0}, presets[p]);
+      sliders.forEach(s=>{ s.el.value = filterState[s.key]; s.val.textContent = filterState[s.key]; });
+      render();
+      bake();
+      pushHistory();
+      toast(btn.textContent + ' applied');
+    });
+  });
+
+  // ---------- rotate / flip ----------
+  function rotate90(dir){
+    if(!hasImage) return;
+    bake();
+    const tmp = document.createElement('canvas');
+    tmp.width = baseCanvas.height; tmp.height = baseCanvas.width;
+    const tctx = tmp.getContext('2d');
+    tctx.translate(tmp.width/2, tmp.height/2);
+    tctx.rotate(dir * Math.PI/2);
+    tctx.drawImage(baseCanvas, -baseCanvas.width/2, -baseCanvas.height/2);
+    setBase(tmp);
+    pushHistory();
+    toast('Rotated');
+  }
+  rotLeftBtn.addEventListener('click', ()=> rotate90(-1));
+  rotRightBtn.addEventListener('click', ()=> rotate90(1));
+
+  function flip(axis){
+    if(!hasImage) return;
+    bake();
+    const tmp = document.createElement('canvas');
+    tmp.width = baseCanvas.width; tmp.height = baseCanvas.height;
+    const tctx = tmp.getContext('2d');
+    if(axis==='h'){ tctx.translate(tmp.width,0); tctx.scale(-1,1); }
+    else { tctx.translate(0,tmp.height); tctx.scale(1,-1); }
+    tctx.drawImage(baseCanvas,0,0);
+    setBase(tmp);
+    pushHistory();
+    toast('Flipped');
+  }
+  flipHBtn.addEventListener('click', ()=> flip('h'));
+  flipVBtn.addEventListener('click', ()=> flip('v'));
+
+  // ---------- resize ----------
+  let aspect = 1;
+  function refreshAspect(){ if(hasImage) aspect = baseCanvas.width / baseCanvas.height; }
+  resizeW.addEventListener('input', ()=>{
+    if(lockAspect.checked && aspect){
+      resizeH.value = Math.round(Number(resizeW.value)/aspect);
+    }
+  });
+  resizeH.addEventListener('input', ()=>{
+    if(lockAspect.checked && aspect){
+      resizeW.value = Math.round(Number(resizeH.value)*aspect);
+    }
+  });
+  resizeApplyBtn.addEventListener('click', ()=>{
+    if(!hasImage) return;
+    const w = Math.max(1, Math.round(Number(resizeW.value)));
+    const h = Math.max(1, Math.round(Number(resizeH.value)));
+    bake();
+    const tmp = document.createElement('canvas');
+    tmp.width = w; tmp.height = h;
+    tmp.getContext('2d').drawImage(baseCanvas, 0,0,w,h);
+    setBase(tmp);
+    pushHistory();
+    toast(`Resized to ${w} × ${h}`);
+  });
+
+  // ---------- open image (upload / drag / paste / camera) ----------
+  function openPicker(){ fileInput.click(); }
+  function openBulkPicker(){ bulkFileInput.click(); }
+
+  uploadBtn.addEventListener('click', openPicker);
+  emptyUploadBtn.addEventListener('click', openPicker);
+  bulkUploadBtn.addEventListener('click', openBulkPicker);
+  emptyBulkUploadBtn.addEventListener('click', openBulkPicker);
+
+  fileInput.addEventListener('change', (e)=>{
+    if(e.target.files && e.target.files[0]) loadFromFile(e.target.files[0]);
+    fileInput.value = '';
+  });
+
+  bulkFileInput.addEventListener('change', e=>{
+    if(e.target.files && e.target.files.length) addFilesToWorkspace(e.target.files);
+    bulkFileInput.value = '';
+  });
+
+  ['dragenter','dragover'].forEach(evt=>{
+    stage.addEventListener(evt, (e)=>{ e.preventDefault(); stage.classList.add('drag-active'); });
+  });
+  ['dragleave','drop'].forEach(evt=>{
+    stage.addEventListener(evt, (e)=>{ e.preventDefault(); stage.classList.remove('drag-active'); });
+  });
+  stage.addEventListener('drop', (e)=>{
+    const files = e.dataTransfer.files;
+    if(files && files.length) addFilesToWorkspace(files);
+  });
+
+  window.addEventListener('paste', (e)=>{
+    const items = e.clipboardData && e.clipboardData.items;
+    if(!items) return;
+    for(const item of items){
+      if(item.type.indexOf('image')===0){
+        const file = item.getAsFile();
+        loadFromFile(file);
+        break;
+      }
+    }
+  });
+
+
+  // ---------- Google Photos shared-link import ----------
+  function setGoogleStatus(msg, isError){
+    googlePhotosStatus.textContent = msg || '';
+    googlePhotosStatus.style.color = isError ? 'var(--danger)' : 'var(--text-faint)';
+  }
+
+  function openGooglePhotosModal(){
+    setGoogleStatus('Paste a public Google Photos shared-album link.');
+    googlePhotosModal.style.display = 'flex';
+    setTimeout(()=>googlePhotosUrl.focus(), 40);
+  }
+
+  function closeGooglePhotosModal(){
+    googlePhotosModal.style.display = 'none';
+  }
+
+  function isValidGooglePhotosUrl(value){
+    try{
+      const u = new URL(value.trim());
+      return u.protocol === 'https:' &&
+        (u.hostname === 'photos.app.goo.gl' || u.hostname === 'photos.google.com');
+    }catch(_){
+      return false;
+    }
+  }
+
+  function proxiedGoogleImageUrl(originalUrl){
+    return `${GOOGLE_PHOTOS_IMAGE_API}?url=${encodeURIComponent(originalUrl)}`;
+  }
+
+  async function fetchGoogleAlbumData(sharedUrl){
+    const response = await fetch(`${GOOGLE_PHOTOS_API}?url=${encodeURIComponent(sharedUrl)}`, {
+      method:'GET',
+      headers:{ 'Accept':'application/json' }
+    });
+
+    let payload = null;
+    try{ payload = await response.json(); }catch(_){}
+
+    if(!response.ok){
+      throw new Error(payload?.error || `Google Photos link could not be read (${response.status}).`);
+    }
+
+    if(!payload || !Array.isArray(payload.items)){
+      throw new Error('The Google Photos link returned no readable images.');
+    }
+
+    return payload;
+  }
+
+  function loadImageFromUrl(url){
+    return new Promise((resolve,reject)=>{
+      const img = new Image();
+      img.onload = ()=>resolve(img);
+      img.onerror = ()=>reject(new Error('Image download failed.'));
+      img.src = url;
+    });
+  }
+
+  async function fileFromGoogleImage(item, index){
+    // Try the direct Google CDN URL first. If the browser blocks it with CORS,
+    // transparently retry through our same-origin image proxy so canvas export
+    // remains safe and untainted.
+    const directUrl = item.url;
+    const proxyUrl = proxiedGoogleImageUrl(item.url);
+
+    try{
+      const response = await fetch(directUrl, { mode:'cors' });
+      if(response.ok){
+        const blob = await response.blob();
+        if(blob.type.startsWith('image/')){
+          return new File(
+            [blob],
+            `google-photos-${String(index + 1).padStart(3,'0')}.jpg`,
+            { type:blob.type || 'image/jpeg' }
+          );
+        }
+      }
+    }catch(_){}
+
+    const proxyResponse = await fetch(proxyUrl, {
+      headers:{ 'Accept':'image/*' }
+    });
+
+    if(!proxyResponse.ok){
+      throw new Error(`Could not download image ${index + 1}.`);
+    }
+
+    const blob = await proxyResponse.blob();
+    if(!blob.type.startsWith('image/')){
+      throw new Error(`Google Photos returned a non-image for item ${index + 1}.`);
+    }
+
+    return new File(
+      [blob],
+      `google-photos-${String(index + 1).padStart(3,'0')}.jpg`,
+      { type:blob.type || 'image/jpeg' }
+    );
+  }
+
+  async function importGooglePhotosSharedAlbum(){
+    const sharedUrl = googlePhotosUrl.value.trim();
+
+    if(!isValidGooglePhotosUrl(sharedUrl)){
+      setGoogleStatus('Paste a valid photos.app.goo.gl or photos.google.com shared-album link.', true);
+      googlePhotosUrl.focus();
+      return;
+    }
+
+    googlePhotosStartBtn.disabled = true;
+    googlePhotosCancelBtn.disabled = true;
+
+    try{
+      setGoogleStatus('Reading the Google Photos album…');
+
+      const album = await fetchGoogleAlbumData(sharedUrl);
+      googleAlbumItems = album.items.filter(item =>
+        item && item.url && !item.isVideo
+      );
+
+      if(!googleAlbumItems.length){
+        throw new Error('No photos were found in this shared album. Videos are skipped.');
+      }
+
+      setGoogleStatus(`Found ${googleAlbumItems.length} photo${googleAlbumItems.length === 1 ? '' : 's'}. Downloading…`);
+
+      const imported = [];
+      const failures = [];
+
+      for(let i = 0; i < googleAlbumItems.length; i++){
+        try{
+          const file = await fileFromGoogleImage(googleAlbumItems[i], i);
+          imported.push(file);
+          setGoogleStatus(`Downloading ${i + 1} of ${googleAlbumItems.length}…`);
+        }catch(error){
+          console.warn('Google Photos image import failed:', error);
+          failures.push(i + 1);
+        }
+      }
+
+      if(!imported.length){
+        throw new Error('The album was found, but none of its photos could be downloaded.');
+      }
+
+      closeGooglePhotosModal();
+      await addFilesToWorkspace(imported);
+
+      if(failures.length){
+        toast(`${imported.length} photos imported; ${failures.length} could not be downloaded`);
+      }else{
+        toast(`${imported.length} Google Photos images imported`);
+      }
+    }catch(error){
+      console.error(error);
+      setGoogleStatus(error?.message || 'Google Photos import failed.', true);
+      toast(error?.message || 'Google Photos import failed.');
+    }finally{
+      googlePhotosStartBtn.disabled = false;
+      googlePhotosCancelBtn.disabled = false;
+    }
+  }
+
+  googlePhotosBtn.addEventListener('click', openGooglePhotosModal);
+  emptyGooglePhotosBtn.addEventListener('click', openGooglePhotosModal);
+  googlePhotosCancelBtn.addEventListener('click', closeGooglePhotosModal);
+  googlePhotosStartBtn.addEventListener('click', importGooglePhotosSharedAlbum);
+
+  googlePhotosUrl.addEventListener('keydown', event=>{
+    if(event.key === 'Enter'){
+      event.preventDefault();
+      importGooglePhotosSharedAlbum();
+    }
+  });
+
+  googlePhotosModal.addEventListener('click', event=>{
+    if(event.target === googlePhotosModal) closeGooglePhotosModal();
+  });
+
+
+  function openCamera(){
+    cameraModal.style.display = 'flex';
+    navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } })
+      .then(stream=>{ camStream = stream; camVideo.srcObject = stream; })
+      .catch(()=>{
+        toast('Could not access camera');
+        cameraModal.style.display = 'none';
+      });
+  }
+  function closeCamera(){
+    if(camStream){ camStream.getTracks().forEach(t=>t.stop()); camStream = null; }
+    cameraModal.style.display = 'none';
+  }
+  cameraBtn.addEventListener('click', openCamera);
+  emptyCameraBtn.addEventListener('click', openCamera);
+  camCancelBtn.addEventListener('click', closeCamera);
+  camCaptureBtn.addEventListener('click', ()=>{
+    const w = camVideo.videoWidth, h = camVideo.videoHeight;
+    if(!w || !h){ toast('Camera not ready yet'); return; }
+    const tmp = document.createElement('canvas');
+    tmp.width = w; tmp.height = h;
+    tmp.getContext('2d').drawImage(camVideo, 0,0,w,h);
+    loadImageSource(tmp, w, h);
+    closeCamera();
+  });
+
+  // ---------- undo/redo/new/download ----------
+  undoBtn.addEventListener('click', undo);
+  redoBtn.addEventListener('click', redo);
+  newBtn.addEventListener('click', ()=>{
+    if(hasImage && !confirm('Start over? All currently loaded images will be removed from this workspace.')) return;
+    clearWorkspace();
+    history = []; histIndex = -1;
+    updateHistoryButtons();
+    setMode('idle');
+    resetFilterUI(false);
+    toast('Workspace cleared');
+  });
+
+  function doDownload(){
+    if(!hasImage) return;
+    bake();
+    pushHistory();
+    syncActiveImageToList();
+    const fmt = exportFormat.value;
+    const mime = fmt==='png' ? 'image/png' : 'image/jpeg';
+    const dataURL = mainCanvas.toDataURL(mime, 0.92);
+    const a = document.createElement('a');
+    a.href = dataURL;
+    a.download = `img29-edit.${fmt==='png'?'png':'jpg'}`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    toast('Downloaded');
+  }
+  downloadBtn.addEventListener('click', doDownload);
+  downloadBtn2.addEventListener('click', doDownload);
+
+
+  // ---------- compact header tools ----------
+  prevImageBtn.addEventListener('click', ()=>navigateImage(-1));
+  nextImageBtn.addEventListener('click', ()=>navigateImage(1));
+  stagePrevBtn.addEventListener('click', ()=>navigateImage(-1));
+  stageNextBtn.addEventListener('click', ()=>navigateImage(1));
+
+  headerCropBtn.addEventListener('click', ()=>{
+    if(!hasImage){ toast('Load an image first'); return; }
+    setMode(mode === 'crop' ? 'idle' : 'crop');
+  });
+
+  headerRotateBtn.addEventListener('click', ()=>rotate90(1));
+
+  headerAdjustBtn.addEventListener('click', ()=>{
+    const section = document.getElementById('adjustSection');
+    section.open = true;
+    section.scrollIntoView({behavior:'smooth', block:'nearest'});
+  });
+
+  headerFullscreenBtn.addEventListener('click', toggleFullscreen);
+
+  // Touch swipe navigation. Horizontal swipes switch images; normal vertical scrolling is preserved.
+  stage.addEventListener('pointerdown', e=>{
+    if(e.pointerType === 'touch'){
+      swipeStartX = e.clientX;
+      swipeStartY = e.clientY;
+    }
+  });
+
+  stage.addEventListener('pointerup', e=>{
+    if(e.pointerType !== 'touch' || swipeStartX === null) return;
+    const dx = e.clientX - swipeStartX;
+    const dy = e.clientY - swipeStartY;
+    swipeStartX = swipeStartY = null;
+
+    if(Math.abs(dx) > 65 && Math.abs(dx) > Math.abs(dy) * 1.2){
+      navigateImage(dx < 0 ? 1 : -1);
+    }
+  });
+
+  // ---------- keyboard shortcuts ----------
+  window.addEventListener('keydown', (e)=>{
+    const mod = e.ctrlKey || e.metaKey;
+    if(mod && e.key.toLowerCase()==='z' && !e.shiftKey){ e.preventDefault(); undo(); }
+    else if(mod && (e.key.toLowerCase()==='y' || (e.key.toLowerCase()==='z' && e.shiftKey))){ e.preventDefault(); redo(); }
+    else if(e.key === 'ArrowLeft' && !['INPUT','TEXTAREA','SELECT'].includes(document.activeElement?.tagName)){ e.preventDefault(); navigateImage(-1); }
+    else if(e.key === 'ArrowRight' && !['INPUT','TEXTAREA','SELECT'].includes(document.activeElement?.tagName)){ e.preventDefault(); navigateImage(1); }
+    else if(e.key === 'Escape' && mode!=='idle'){ setMode('idle'); }
+    else if(e.key === 'Escape' && googlePhotosModal.style.display !== 'none'){ closeGooglePhotosModal(); }
+  });
+
+  // keep aspect ref fresh whenever base changes
+  const origSetBase = setBase;
+  setBase = function(c){ origSetBase(c); refreshAspect(); };
+
+  // warn before leaving with unsaved edits (in-memory only, by design — just a gentle nudge)
+  window.addEventListener('beforeunload', (e)=>{
+    if(hasImage){ e.preventDefault(); e.returnValue=''; }
+  });
+
+  updateHistoryButtons();
+  updateImageControls();
+})();
+</script>
+</body>
+</html>

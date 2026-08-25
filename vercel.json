@@ -1,13 +1,10 @@
 {
-  "headers": [
-    {
-      "source": "/(.*)",
-      "headers": [
-        {
-          "key": "Cross-Origin-Opener-Policy",
-          "value": "same-origin-allow-popups"
-        }
-      ]
+  "functions": {
+    "api/google-photos.js": {
+      "maxDuration": 60
+    },
+    "api/google-photos-image.js": {
+      "maxDuration": 30
     }
-  ]
+  }
 }
