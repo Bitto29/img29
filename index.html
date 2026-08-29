@@ -13,6 +13,13 @@
 <meta name="theme-color" content="#0b0b0f">
 <meta name="color-scheme" content="dark light">
 <meta name="referrer" content="strict-origin-when-cross-origin">
+<link rel="manifest" href="/manifest.json">
+<link rel="icon" href="/icon-192.png" sizes="192x192" type="image/png">
+<link rel="icon" href="/icon-512.png" sizes="512x512" type="image/png">
+<link rel="apple-touch-icon" href="/icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="img29">
 <link rel="canonical" href="https://img29.vercel.app/">
 <meta property="og:type" content="website">
 <meta property="og:title" content="img29 | Free Online Image Editor">
@@ -570,7 +577,7 @@
 
 <div class="app">
   <header class="topbar">
-    <div class="brand"><span class="dot">◆</span>IMG29<span class="tagline">// Free online image editor. Edit photos directly in your browser.</span></div>
+    <div class="brand"><span class="dot">◆</span>IMG29<span class="tagline">// local image editor — nothing saved</span></div>
     <div class="topbar-actions">
       <div class="nav-group">
         <button class="icon-btn compact" id="prevImageBtn" title="Previous image"></button>
@@ -753,6 +760,7 @@
           <button class="icon-btn" id="emptyBulkUploadBtn"></button>
           <button class="icon-btn" id="emptyGooglePhotosBtn"></button>
           <button class="icon-btn" id="emptyCameraBtn"></button>
+          <button class="icon-btn" id="emptySendPhoneBtn"></button>
         </div>
       </div>
 
@@ -818,6 +826,24 @@
   </div>
 </div>
 
+<div class="modal-backdrop" id="sendPhoneModal" style="display:none;">
+  <div class="modal" style="max-width:380px; text-align:center;">
+    <h3>Send from your phone</h3>
+    <p class="hint" style="margin:0 0 16px;">Scan this with your phone's camera, pick a photo, and it'll land here automatically.</p>
+
+    <div id="sendPhoneQr" style="display:flex; justify-content:center; padding:14px; background:#fff; border-radius:10px; margin:0 auto 14px; width:fit-content;"></div>
+
+    <div class="hint" style="margin-bottom:4px;">Or open this on your phone:</div>
+    <div id="sendPhoneUrl" style="font-family:var(--font-mono); font-size:12px; color:var(--accent); word-break:break-all; margin-bottom:14px;"></div>
+
+    <div id="sendPhoneStatus" class="hint oauth-status" style="margin-bottom:10px;"></div>
+
+    <div class="oauth-actions">
+      <button class="btn full" id="sendPhoneCancelBtn"></button>
+    </div>
+  </div>
+</div>
+
 <div id="toast"></div>
 
 <div class="modal-backdrop" id="cameraModal" style="display:none;">
@@ -831,6 +857,7 @@
   </div>
 </div>
 
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <script>
 (function(){
   "use strict";
@@ -853,7 +880,8 @@
       sidebar:'<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16"/>',
       zoomIn:'<circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/><path d="M11 8v6M8 11h6"/>',
       zoomOut:'<circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/><path d="M8 11h6"/>',
-      fit:'<path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M21 8V5a2 2 0 0 0-2-2h-3"/><path d="M3 16v3a2 2 0 0 0 2 2h3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/>'
+      fit:'<path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M21 8V5a2 2 0 0 0-2-2h-3"/><path d="M3 16v3a2 2 0 0 0 2 2h3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/>',
+      phone:'<rect x="7" y="2" width="10" height="20" rx="2"/><path d="M11 18h2"/>'
     };
     return `<svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">${paths[name]||''}</svg>${label?`<span>${label}</span>`:''}`;
   }
@@ -954,12 +982,21 @@
   googlePhotosStartBtn.innerHTML = icon('photos','Fetch images');
   googlePhotosCancelBtn.innerHTML = icon('close','Cancel');
 
+  const emptySendPhoneBtn = document.getElementById('emptySendPhoneBtn');
+  const sendPhoneModal = document.getElementById('sendPhoneModal');
+  const sendPhoneQr = document.getElementById('sendPhoneQr');
+  const sendPhoneUrl = document.getElementById('sendPhoneUrl');
+  const sendPhoneStatus = document.getElementById('sendPhoneStatus');
+  const sendPhoneCancelBtn = document.getElementById('sendPhoneCancelBtn');
+  sendPhoneCancelBtn.innerHTML = icon('close','Cancel');
+
   const iconLabels = {
     prevImageBtn:['prev',''], nextImageBtn:['next',''], headerCropBtn:['crop',''], headerRotateBtn:['rotate',''], headerAdjustBtn:['adjust',''], headerFullscreenBtn:['fullscreen',''],
     undoBtn:['undo','Undo'], redoBtn:['redo','Redo'], newBtn:['close','New'], downloadBtn:['download','Export'], uploadBtn:['upload','Single'], bulkUploadBtn:['upload','Bulk'], cameraBtn:['camera','Camera'],
     googlePhotosBtn:['photos','Google Photos link'], rotLeftBtn:['rotate','Rotate L'], rotRightBtn:['rotate','Rotate R'], flipHBtn:['flipH','Flip H'], flipVBtn:['flipV','Flip V'], cropModeBtn:['crop','Crop'],
     drawModeBtn:['brush','Brush'], textModeBtn:['text','Place text'], downloadBtn2:['download','Download image'], stagePrevBtn:['prev',''], stageNextBtn:['next',''], emptyUploadBtn:['upload','Upload image'],
     emptyBulkUploadBtn:['upload','Bulk images'], emptyGooglePhotosBtn:['photos','Google Photos link'], emptyCameraBtn:['camera','Use camera'], applyAdjustBtn:['check','Apply'], camCaptureBtn:['camera','Capture'],
+    emptySendPhoneBtn:['phone','Send from phone'],
     sidebarToggleBtn:['sidebar',''], zoomInBtn:['zoomIn',''], zoomOutBtn:['zoomOut',''], fitScreenBtn:['fit','']
   };
   Object.entries(iconLabels).forEach(([id,spec])=>{ const el=document.getElementById(id); if(el) el.innerHTML=icon(spec[0],spec[1]); });
@@ -1955,6 +1992,75 @@
     if(event.target === googlePhotosModal) closeGooglePhotosModal();
   });
 
+  // ---------- send from phone (QR relay via /api/relay) ----------
+  let sendPhonePollTimer = null;
+  let sendPhoneCode = null;
+
+  function generateSessionCode(){
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // no ambiguous chars
+    let code = '';
+    for(let i=0;i<8;i++) code += chars[Math.floor(Math.random()*chars.length)];
+    return code;
+  }
+
+  function openSendPhoneModal(){
+    sendPhoneCode = generateSessionCode();
+    const url = `${location.origin}/send.html?code=${sendPhoneCode}`;
+    sendPhoneUrl.textContent = url;
+    sendPhoneQr.innerHTML = '';
+    if(window.QRCode){
+      new QRCode(sendPhoneQr, { text:url, width:180, height:180, colorDark:'#0f0d0c', colorLight:'#ffffff' });
+    }else{
+      sendPhoneQr.textContent = 'QR unavailable — use the link below.';
+    }
+    sendPhoneStatus.textContent = 'Waiting for a photo…';
+    sendPhoneStatus.style.color = 'var(--text-faint)';
+    sendPhoneModal.style.display = 'flex';
+    startSendPhonePolling();
+  }
+
+  function closeSendPhoneModal(){
+    sendPhoneModal.style.display = 'none';
+    stopSendPhonePolling();
+  }
+
+  function startSendPhonePolling(){
+    stopSendPhonePolling();
+    sendPhonePollTimer = setInterval(async ()=>{
+      try{
+        const res = await fetch(`/api/relay?code=${sendPhoneCode}`);
+        const data = await res.json();
+        if(data && data.ready && data.url){
+          stopSendPhonePolling();
+          sendPhoneStatus.textContent = 'Got it — loading…';
+          const imgRes = await fetch(data.url);
+          const blob = await imgRes.blob();
+          const file = new File([blob], 'from-phone.jpg', { type: blob.type || 'image/jpeg' });
+          await addFilesToWorkspace([file]);
+          fetch('/api/relay', {
+            method:'DELETE',
+            headers:{'Content-Type':'application/json'},
+            body: JSON.stringify({ code: sendPhoneCode })
+          }).catch(()=>{});
+          closeSendPhoneModal();
+          toast('Photo received from phone');
+        }
+      }catch(err){
+        console.error('send-phone poll failed:', err);
+      }
+    }, 2000);
+  }
+
+  function stopSendPhonePolling(){
+    if(sendPhonePollTimer){ clearInterval(sendPhonePollTimer); sendPhonePollTimer = null; }
+  }
+
+  emptySendPhoneBtn.addEventListener('click', openSendPhoneModal);
+  sendPhoneCancelBtn.addEventListener('click', closeSendPhoneModal);
+  sendPhoneModal.addEventListener('click', event=>{
+    if(event.target === sendPhoneModal) closeSendPhoneModal();
+  });
+
 
   function openCamera(){
     cameraModal.style.display = 'flex';
@@ -2076,6 +2182,7 @@
     else if(e.key === 'ArrowRight' && !['INPUT','TEXTAREA','SELECT'].includes(document.activeElement?.tagName)){ e.preventDefault(); navigateImage(1); }
     else if(e.key === 'Escape' && mode!=='idle'){ setMode('idle'); }
     else if(e.key === 'Escape' && googlePhotosModal.style.display !== 'none'){ closeGooglePhotosModal(); }
+    else if(e.key === 'Escape' && sendPhoneModal.style.display !== 'none'){ closeSendPhoneModal(); }
   });
 
   // keep aspect ref fresh whenever base changes
@@ -2089,6 +2196,50 @@
 
   updateHistoryButtons();
   updateImageControls();
+
+  // ---------- PWA: install support + "share to img29" from Android ----------
+  if('serviceWorker' in navigator){
+    window.addEventListener('load', ()=>{
+      navigator.serviceWorker.register('/sw.js').catch(err=>console.error('img29 SW registration failed:', err));
+    });
+  }
+
+  // After Android hands off shared photo(s), sw.js stashes them in IndexedDB
+  // and redirects here with ?share=1 — pull them out and drop them straight
+  // into the multi-image workspace, same as a normal file upload would.
+  async function importSharedImages(){
+    const params = new URLSearchParams(location.search);
+    if(params.get('share') !== '1') return;
+    history.replaceState(null, '', location.pathname);
+    try{
+      const db = await new Promise((resolve,reject)=>{
+        const req = indexedDB.open('img29-share', 1);
+        req.onupgradeneeded = ()=>{
+          if(!req.result.objectStoreNames.contains('shared-images')){
+            req.result.createObjectStore('shared-images', {autoIncrement:true});
+          }
+        };
+        req.onsuccess = ()=>resolve(req.result);
+        req.onerror = ()=>reject(req.error);
+      });
+      const records = await new Promise((resolve,reject)=>{
+        const tx = db.transaction('shared-images','readwrite');
+        const store = tx.objectStore('shared-images');
+        const getAllReq = store.getAll();
+        getAllReq.onsuccess = ()=>{ store.clear(); resolve(getAllReq.result); };
+        getAllReq.onerror = ()=>reject(getAllReq.error);
+      });
+      db.close();
+      if(records && records.length){
+        const files = records.map(r => new File([r.blob], r.name || 'shared-image.jpg', {type: r.type || 'image/jpeg'}));
+        await addFilesToWorkspace(files);
+        toast(`Imported ${files.length} shared image${files.length>1?'s':''}`);
+      }
+    }catch(err){
+      console.error('img29 shared image import failed:', err);
+    }
+  }
+  importSharedImages();
 })();
 </script>
 </body>
