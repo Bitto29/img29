@@ -6,6 +6,7 @@
     "node": ">=22.18.0"
   },
   "dependencies": {
-    "google-photos-album-image-url-fetch": "^3.2.0"
+    "google-photos-album-image-url-fetch": "^3.2.0",
+    "@vercel/blob": "latest"
   }
 }
