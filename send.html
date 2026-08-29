@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1">
+<title>Send to img29</title>
+<style>
+  :root{
+    --bg:#0f0d0c; --bg-deep:#0a0908; --panel:#17130f; --border:#2a2523;
+    --text:#f0ece7; --text-dim:#a89f97; --text-faint:#7a716a; --accent:#e8a13d;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0; min-height:100vh; background:var(--bg); color:var(--text);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,sans-serif;
+    display:flex; align-items:center; justify-content:center; padding:24px;
+  }
+  .card{ width:100%; max-width:380px; text-align:center; }
+  h1{ font-size:19px; margin:0 0 6px; }
+  p{ color:var(--text-dim); font-size:13.5px; line-height:1.5; margin:0 0 26px; }
+  .picker{
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    gap:10px; padding:40px 20px; border:1.5px dashed var(--border); border-radius:14px;
+    background:var(--panel); cursor:pointer;
+  }
+  .picker svg{ width:34px; height:34px; stroke:var(--accent); fill:none; stroke-width:1.6; }
+  .picker span{ font-size:13.5px; color:var(--text-dim); }
+  input[type=file]{ display:none; }
+  .status{ margin-top:18px; font-size:13px; color:var(--text-faint); min-height:18px; }
+  .status.err{ color:#e2745a; }
+  .status.ok{ color:#7fbf7f; }
+  .preview{ margin-top:16px; width:100%; border-radius:10px; overflow:hidden; display:none; }
+  .preview img{ width:100%; display:block; }
+  .spinner{
+    width:16px; height:16px; border-radius:50%; border:2px solid var(--border);
+    border-top-color:var(--accent); display:inline-block; vertical-align:-3px; margin-right:6px;
+    animation:spin .7s linear infinite;
+  }
+  @keyframes spin{ to{ transform:rotate(360deg); } }
+</style>
+</head>
+<body>
+  <div class="card">
+    <h1>Send this photo to your laptop</h1>
+    <p>Pick a photo below — it'll appear in your img29 tab automatically.</p>
+
+    <label class="picker" id="picker">
+      <svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="8.5" cy="10.5" r="1.5"/><path d="m21 15-5-5L5 19"/></svg>
+      <span id="pickerLabel">Tap to choose a photo</span>
+      <input type="file" id="fileInput" accept="image/*">
+    </label>
+
+    <div class="preview" id="preview"><img id="previewImg" alt=""></div>
+    <div class="status" id="status"></div>
+  </div>
+
+<script>
+(function(){
+  const params = new URLSearchParams(location.search);
+  const code = params.get('code');
+  const picker = document.getElementById('picker');
+  const pickerLabel = document.getElementById('pickerLabel');
+  const fileInput = document.getElementById('fileInput');
+  const status = document.getElementById('status');
+  const preview = document.getElementById('preview');
+  const previewImg = document.getElementById('previewImg');
+
+  if(!code || !/^[A-Za-z0-9]{6,10}$/.test(code)){
+    picker.style.display = 'none';
+    status.textContent = 'This link is missing or has an invalid code. Go back to your laptop and scan the QR code again.';
+    status.className = 'status err';
+    return;
+  }
+
+  const MAX_DIM = 1600; // keeps the upload small/fast and safely under the server's size limit
+
+  fileInput.addEventListener('change', async ()=>{
+    const file = fileInput.files[0];
+    if(!file) return;
+    fileInput.disabled = true;
+    picker.style.pointerEvents = 'none';
+    picker.style.opacity = '.6';
+    status.innerHTML = '<span class="spinner"></span>Sending…';
+    status.className = 'status';
+
+    try{
+      const dataUrl = await downscaleToDataUrl(file, MAX_DIM);
+      previewImg.src = dataUrl;
+      preview.style.display = 'block';
+
+      const res = await fetch('/api/relay', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code, dataUrl })
+      });
+      if(!res.ok) throw new Error('Upload failed');
+
+      status.textContent = 'Sent! Check your laptop — it should appear there in a couple seconds.';
+      status.className = 'status ok';
+      pickerLabel.textContent = 'Sent ✓';
+    }catch(err){
+      console.error(err);
+      status.textContent = 'Something went wrong sending that photo. Try again.';
+      status.className = 'status err';
+      fileInput.disabled = false;
+      picker.style.pointerEvents = '';
+      picker.style.opacity = '';
+    }
+  });
+
+  function downscaleToDataUrl(file, maxDim){
+    return new Promise((resolve, reject)=>{
+      const img = new Image();
+      const url = URL.createObjectURL(file);
+      img.onload = ()=>{
+        let w = img.naturalWidth, h = img.naturalHeight;
+        const longest = Math.max(w, h);
+        if(longest > maxDim){
+          const scale = maxDim / longest;
+          w = Math.round(w * scale);
+          h = Math.round(h * scale);
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = w; canvas.height = h;
+        canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+        URL.revokeObjectURL(url);
+        resolve(canvas.toDataURL('image/jpeg', 0.85));
+      };
+      img.onerror = reject;
+      img.src = url;
+    });
+  }
+})();
+</script>
+</body>
+</html>
