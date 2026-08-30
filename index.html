@@ -829,7 +829,7 @@
 <div class="modal-backdrop" id="sendPhoneModal" style="display:none;">
   <div class="modal" style="max-width:380px; text-align:center;">
     <h3>Send from your phone</h3>
-    <p class="hint" style="margin:0 0 16px;">Scan this with your phone's camera, pick a photo, and it'll land here automatically.</p>
+    <p class="hint" style="margin:0 0 16px;">Scan this with your phone's camera, pick one or more photos, and they'll land here automatically.</p>
 
     <div id="sendPhoneQr" style="display:flex; justify-content:center; padding:14px; background:#fff; border-radius:10px; margin:0 auto 14px; width:fit-content;"></div>
 
@@ -2030,20 +2030,22 @@
       try{
         const res = await fetch(`/api/relay?code=${sendPhoneCode}`);
         const data = await res.json();
-        if(data && data.ready && data.url){
+        if(data && data.ready && Array.isArray(data.urls) && data.urls.length){
           stopSendPhonePolling();
-          sendPhoneStatus.textContent = 'Got it — loading…';
-          const imgRes = await fetch(data.url);
-          const blob = await imgRes.blob();
-          const file = new File([blob], 'from-phone.jpg', { type: blob.type || 'image/jpeg' });
-          await addFilesToWorkspace([file]);
+          sendPhoneStatus.textContent = `Got ${data.urls.length} photo${data.urls.length>1?'s':''} — loading…`;
+          const files = await Promise.all(data.urls.map(async (url, i)=>{
+            const imgRes = await fetch(url);
+            const blob = await imgRes.blob();
+            return new File([blob], `from-phone-${i+1}.jpg`, { type: blob.type || 'image/jpeg' });
+          }));
+          await addFilesToWorkspace(files);
           fetch('/api/relay', {
             method:'DELETE',
             headers:{'Content-Type':'application/json'},
             body: JSON.stringify({ code: sendPhoneCode })
           }).catch(()=>{});
           closeSendPhoneModal();
-          toast('Photo received from phone');
+          toast(`Imported ${files.length} photo${files.length>1?'s':''} from phone`);
         }
       }catch(err){
         console.error('send-phone poll failed:', err);
