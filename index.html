@@ -612,8 +612,12 @@
           <div class="row">
             <button class="btn full" id="googlePhotosBtn"></button>
           </div>
+          <div class="row">
+            <button class="btn full" id="sendPhoneBtn"></button>
+          </div>
           <p class="hint bulk-note">Bulk lets you select multiple image files and edit them one at a time. Use the arrows, thumbnails, swipe, or ←/→ keys to move between images.</p>
           <p class="hint">Google Photos lets you import images from a public shared-album link.</p>
+          <p class="hint">Send from phone shows a code/QR your phone can use to send photos here directly.</p>
           <input type="file" id="fileInput" accept="image/*" hidden>
           <input type="file" id="bulkFileInput" accept="image/*" multiple hidden>
         </div>
@@ -983,6 +987,7 @@
   googlePhotosCancelBtn.innerHTML = icon('close','Cancel');
 
   const emptySendPhoneBtn = document.getElementById('emptySendPhoneBtn');
+  const sendPhoneBtn = document.getElementById('sendPhoneBtn');
   const sendPhoneModal = document.getElementById('sendPhoneModal');
   const sendPhoneQr = document.getElementById('sendPhoneQr');
   const sendPhoneUrl = document.getElementById('sendPhoneUrl');
@@ -996,7 +1001,7 @@
     googlePhotosBtn:['photos','Google Photos link'], rotLeftBtn:['rotate','Rotate L'], rotRightBtn:['rotate','Rotate R'], flipHBtn:['flipH','Flip H'], flipVBtn:['flipV','Flip V'], cropModeBtn:['crop','Crop'],
     drawModeBtn:['brush','Brush'], textModeBtn:['text','Place text'], downloadBtn2:['download','Download image'], stagePrevBtn:['prev',''], stageNextBtn:['next',''], emptyUploadBtn:['upload','Upload image'],
     emptyBulkUploadBtn:['upload','Bulk images'], emptyGooglePhotosBtn:['photos','Google Photos link'], emptyCameraBtn:['camera','Use camera'], applyAdjustBtn:['check','Apply'], camCaptureBtn:['camera','Capture'],
-    emptySendPhoneBtn:['phone','Send from phone'],
+    emptySendPhoneBtn:['phone','Send from phone'], sendPhoneBtn:['phone','Send from phone'],
     sidebarToggleBtn:['sidebar',''], zoomInBtn:['zoomIn',''], zoomOutBtn:['zoomOut',''], fitScreenBtn:['fit','']
   };
   Object.entries(iconLabels).forEach(([id,spec])=>{ const el=document.getElementById(id); if(el) el.innerHTML=icon(spec[0],spec[1]); });
@@ -1997,10 +2002,7 @@
   let sendPhoneCode = null;
 
   function generateSessionCode(){
-    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // no ambiguous chars
-    let code = '';
-    for(let i=0;i<8;i++) code += chars[Math.floor(Math.random()*chars.length)];
-    return code;
+    return String(Math.floor(100000 + Math.random()*900000)); // 6-digit numeric, easy to type by hand
   }
 
   function openSendPhoneModal(){
@@ -2058,6 +2060,7 @@
   }
 
   emptySendPhoneBtn.addEventListener('click', openSendPhoneModal);
+  sendPhoneBtn.addEventListener('click', openSendPhoneModal);
   sendPhoneCancelBtn.addEventListener('click', closeSendPhoneModal);
   sendPhoneModal.addEventListener('click', event=>{
     if(event.target === sendPhoneModal) closeSendPhoneModal();
