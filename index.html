@@ -592,7 +592,14 @@
     position:absolute; left:0; right:0; bottom:0; padding:2px 5px;
     font-size:9px; font-family:var(--font-mono); color:#f0ece7;
     background:linear-gradient(transparent, rgba(0,0,0,.75));
+  }  /* ---------- keyboard-shortcut badges ---------- */
+  .kbd{
+    margin-left:auto;
+    font-family:var(--font-mono); font-size:9.5px; color:var(--text-faint);
+    border:1px solid var(--border); border-radius:4px; padding:1px 5px;
+    line-height:1.5; letter-spacing:.02em; flex-shrink:0;
   }
+  .btn:hover .kbd{ color:var(--text-dim); border-color:var(--accent-dim); }
 </style>
 </head>
 <body>
@@ -1046,6 +1053,33 @@
     sidebarToggleBtn:['sidebar',''], zoomInBtn:['zoomIn',''], zoomOutBtn:['zoomOut',''], fitScreenBtn:['fit','']
   };
   Object.entries(iconLabels).forEach(([id,spec])=>{ const el=document.getElementById(id); if(el) el.innerHTML=icon(spec[0],spec[1]); });
+
+  // ---------- keyboard-shortcut badges/tooltips ----------
+  function addShortcutBadge(id, label){
+    const el = document.getElementById(id);
+    if(!el) return;
+    const kbd = document.createElement('span');
+    kbd.className = 'kbd';
+    kbd.textContent = label;
+    el.appendChild(kbd);
+  }
+  // Buttons with visible text get a small badge showing their key.
+  addShortcutBadge('cropModeBtn', 'C');
+  addShortcutBadge('drawModeBtn', 'B');
+  addShortcutBadge('textModeBtn', 'T');
+  addShortcutBadge('rotRightBtn', 'R');
+  addShortcutBadge('rotLeftBtn', '⇧R');
+  addShortcutBadge('flipHBtn', 'H');
+  addShortcutBadge('flipVBtn', 'V');
+  addShortcutBadge('saveToDeviceBtn', '⌃S');
+  addShortcutBadge('downloadBtn2', '⌃⇧S');
+  // Icon-only buttons have no room for a badge — fold the shortcut into
+  // the hover tooltip instead so it's still discoverable.
+  headerCropBtn.title += ' (C)';
+  headerRotateBtn.title += ' (R)';
+  headerFullscreenBtn.title += ' (F)';
+  pipBtn.title += ' (P)';
+  sidebarToggleBtn.title += ' (M)';
 
   // ---------- state ----------
   const MAX_DIM = 2400;
@@ -1573,14 +1607,14 @@
         document.documentElement.requestFullscreen().catch(()=>{});
       }
       headerFullscreenBtn.innerHTML = icon('minimize');
-      headerFullscreenBtn.title = 'Exit fullscreen';
+      headerFullscreenBtn.title = 'Exit fullscreen (F)';
       toast('Fullscreen enabled');
     }else{
       if(document.fullscreenElement && document.exitFullscreen){
         document.exitFullscreen().catch(()=>{});
       }
       headerFullscreenBtn.innerHTML = icon('fullscreen');
-      headerFullscreenBtn.title = 'Fullscreen';
+      headerFullscreenBtn.title = 'Fullscreen (F)';
       toast('Fullscreen disabled');
       // Restore whatever zoom/pan was active before going fullscreen —
       // the stage size just changed twice (enter + exit) and without this
@@ -1599,7 +1633,7 @@
     if(!document.fullscreenElement && document.body.classList.contains('fullscreen-active')){
       document.body.classList.remove('fullscreen-active');
       headerFullscreenBtn.innerHTML = icon('fullscreen');
-      headerFullscreenBtn.title = 'Fullscreen';
+      headerFullscreenBtn.title = 'Fullscreen (F)';
       if(preFullscreenZoom && hasImage){
         zoomLevel = preFullscreenZoom.zoomLevel;
         panX = preFullscreenZoom.panX;
@@ -1703,7 +1737,7 @@
       mirrorToPip();
 
       pipBtn.classList.add('active');
-      pipBtn.title = 'Close mini window';
+      pipBtn.title = 'Close mini window (P)';
 
       pipWindow.addEventListener('pagehide', ()=>{
         pipWindow = null;
@@ -1712,7 +1746,7 @@
         pipPrevBtn = null;
         pipNextBtn = null;
         pipBtn.classList.remove('active');
-        pipBtn.title = 'Float image in a mini window';
+        pipBtn.title = 'Float image in a mini window (P)';
       });
     }catch(err){
       console.error('PiP failed:', err);
@@ -2491,13 +2525,27 @@
   // ---------- keyboard shortcuts ----------
   window.addEventListener('keydown', (e)=>{
     const mod = e.ctrlKey || e.metaKey;
+    const tag = document.activeElement?.tagName;
+    const typing = ['INPUT','TEXTAREA','SELECT'].includes(tag) || document.activeElement?.isContentEditable;
+
     if(mod && e.key.toLowerCase()==='z' && !e.shiftKey){ e.preventDefault(); undo(); }
     else if(mod && (e.key.toLowerCase()==='y' || (e.key.toLowerCase()==='z' && e.shiftKey))){ e.preventDefault(); redo(); }
-    else if(e.key === 'ArrowLeft' && !['INPUT','TEXTAREA','SELECT'].includes(document.activeElement?.tagName)){ e.preventDefault(); navigateImage(-1); }
-    else if(e.key === 'ArrowRight' && !['INPUT','TEXTAREA','SELECT'].includes(document.activeElement?.tagName)){ e.preventDefault(); navigateImage(1); }
+    else if(e.key === 'ArrowLeft' && !typing){ e.preventDefault(); navigateImage(-1); }
+    else if(e.key === 'ArrowRight' && !typing){ e.preventDefault(); navigateImage(1); }
     else if(e.key === 'Escape' && mode!=='idle'){ setMode('idle'); }
     else if(e.key === 'Escape' && googlePhotosModal.style.display !== 'none'){ closeGooglePhotosModal(); }
     else if(e.key === 'Escape' && sendPhoneModal.style.display !== 'none'){ closeSendPhoneModal(); }
+    else if(mod && !typing && hasImage && e.key.toLowerCase()==='s' && e.shiftKey){ e.preventDefault(); doDownload(); }
+    else if(mod && !typing && hasImage && e.key.toLowerCase()==='s'){ e.preventDefault(); saveCurrentImageToDevice(); }
+    else if(!mod && !typing && hasImage && e.key.toLowerCase()==='c'){ e.preventDefault(); setMode(mode==='crop' ? 'idle' : 'crop'); }
+    else if(!mod && !typing && hasImage && e.key.toLowerCase()==='b'){ e.preventDefault(); setMode(mode==='draw' ? 'idle' : 'draw'); }
+    else if(!mod && !typing && hasImage && e.key.toLowerCase()==='t'){ e.preventDefault(); setMode(mode==='text' ? 'idle' : 'text'); }
+    else if(!mod && !typing && hasImage && e.key.toLowerCase()==='r'){ e.preventDefault(); rotate90(e.shiftKey ? -1 : 1); }
+    else if(!mod && !typing && hasImage && e.key.toLowerCase()==='h'){ e.preventDefault(); flip('h'); }
+    else if(!mod && !typing && hasImage && e.key.toLowerCase()==='v'){ e.preventDefault(); flip('v'); }
+    else if(!mod && !typing && e.key.toLowerCase()==='f'){ e.preventDefault(); toggleFullscreen(); }
+    else if(!mod && !typing && hasImage && e.key.toLowerCase()==='p'){ e.preventDefault(); togglePip(); }
+    else if(!mod && !typing && e.key.toLowerCase()==='m'){ e.preventDefault(); sidebarToggleBtn.click(); }
   });
 
   // keep aspect ref fresh whenever base changes
