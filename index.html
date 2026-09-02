@@ -1254,8 +1254,15 @@
   function clampPan(){
     const scaledW = canvasWrap.offsetWidth * zoomLevel;
     const scaledH = canvasWrap.offsetHeight * zoomLevel;
-    const maxX = Math.max(0, (scaledW - stage.clientWidth) / 2);
-    const maxY = Math.max(0, (scaledH - stage.clientHeight) / 2);
+    // Previously this stopped you the instant the image's edge reached the
+    // stage's edge, so it always stayed covering the whole area with no
+    // gaps. Now it allows dragging well past that point — revealing empty
+    // space around the image is fine — it just stops before you could lose
+    // the image completely off-screen with no way to see it anymore.
+    const slackX = Math.max(scaledW, stage.clientWidth) * 0.6;
+    const slackY = Math.max(scaledH, stage.clientHeight) * 0.6;
+    const maxX = Math.max(0, (scaledW - stage.clientWidth) / 2) + slackX;
+    const maxY = Math.max(0, (scaledH - stage.clientHeight) / 2) + slackY;
     panX = Math.min(maxX, Math.max(-maxX, panX));
     panY = Math.min(maxY, Math.max(-maxY, panY));
   }
@@ -1271,6 +1278,7 @@
     // Auto grab-to-pan: only ever active when actually zoomed in AND no
     // tool (crop/draw/text) is selected, so it never fights other controls.
     canvasWrap.classList.toggle('zoomed', zoomLevel>1 && mode==='idle');
+    updateFitScreenBtn();
   }
   function setZoom(z){
     zoomLevel = Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, Math.round(z*100)/100));
@@ -1282,8 +1290,8 @@
   // axis currently has empty space (letterboxing), instead of just the
   // default "contain" fit — e.g. a tall image with side gaps gets zoomed
   // in until those gaps are gone.
-  function fitToScreen(){
-    if(!hasImage) return;
+  function computeCoverZoom(){
+    if(!hasImage) return 1;
     const cs = getComputedStyle(stage);
     const padX = parseFloat(cs.paddingLeft) + parseFloat(cs.paddingRight);
     const padY = parseFloat(cs.paddingTop) + parseFloat(cs.paddingBottom);
@@ -1296,9 +1304,26 @@
     const natW = canvasWrap.offsetWidth;
     const natH = canvasWrap.offsetHeight;
     canvasWrap.style.transform = prevTransform;
-    if(!natW || !natH) return;
+    if(!natW || !natH) return 1;
+    return Math.max(availW / natW, availH / natH);
+  }
+
+  function fitToScreen(){
+    if(!hasImage) return;
+    const coverZoom = computeCoverZoom();
+    const alreadyFilled = coverZoom > 1.01 && Math.abs(zoomLevel - coverZoom) < 0.02;
     panX = 0; panY = 0;
-    setZoom(Math.max(availW / natW, availH / natH));
+    setZoom(alreadyFilled ? 1 : coverZoom);
+  }
+
+  // Keeps the button showing "fill the screen" vs "back to default size"
+  // in sync with the actual current zoom, no matter how it got there
+  // (this button, the +/- buttons, wheel-zoom, or keyboard shortcuts).
+  function updateFitScreenBtn(){
+    const coverZoom = computeCoverZoom();
+    const filled = coverZoom > 1.01 && Math.abs(zoomLevel - coverZoom) < 0.02;
+    fitScreenBtn.innerHTML = icon(filled ? 'minimize' : 'fit');
+    fitScreenBtn.title = filled ? 'Back to default size' : 'Fit to screen';
   }
   fitScreenBtn.addEventListener('click', fitToScreen);
 
@@ -1352,13 +1377,15 @@
 
   // ---------- sidebar collapse ----------
   // Closed by default on load so the canvas gets full space right away —
-  // toggle it back open anytime from the header button.
+  // toggle it back open anytime from the header button. The button only
+  // glows while the sidebar is actually open, matching every other toggle
+  // button in the header (crop/fullscreen/pip only glow while active) —
+  // it previously glowed by default since collapsed was the starting state.
   const appEl = document.querySelector('.app');
   appEl.classList.add('sidebar-collapsed');
-  sidebarToggleBtn.classList.add('active');
   sidebarToggleBtn.addEventListener('click', ()=>{
     appEl.classList.toggle('sidebar-collapsed');
-    sidebarToggleBtn.classList.toggle('active');
+    sidebarToggleBtn.classList.toggle('active', !appEl.classList.contains('sidebar-collapsed'));
   });
 
   function loadImageSource(imgOrCanvas, srcW, srcH){
@@ -2484,7 +2511,7 @@
       // Apply/Cancel live in the sidebar, which is closed by default —
       // without this the crop tool looks like it does nothing.
       appEl.classList.remove('sidebar-collapsed');
-      sidebarToggleBtn.classList.remove('active');
+      sidebarToggleBtn.classList.add('active');
       const section = document.getElementById('transformSection');
       section.open = true;
       cropModeBtn.scrollIntoView({behavior:'smooth', block:'nearest'});
@@ -2495,7 +2522,7 @@
 
   headerAdjustBtn.addEventListener('click', ()=>{
     appEl.classList.remove('sidebar-collapsed');
-    sidebarToggleBtn.classList.remove('active');
+    sidebarToggleBtn.classList.add('active');
     const section = document.getElementById('adjustSection');
     section.open = true;
     section.scrollIntoView({behavior:'smooth', block:'nearest'});
