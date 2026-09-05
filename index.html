@@ -162,9 +162,18 @@
     background:var(--bg-deep);
     overflow:hidden; border-radius:3px;
     cursor:pointer;
+    position:relative;
   }
   .thumb.active{border-color:var(--accent); box-shadow:0 0 0 1px var(--accent-dim);}
   .thumb img{width:100%; height:100%; object-fit:cover; display:block;}
+  .thumb-del{
+    position:absolute; top:1px; right:1px; width:14px; height:14px;
+    border-radius:50%; border:none; background:rgba(10,8,6,.75); color:#f0ece7;
+    display:flex; align-items:center; justify-content:center; cursor:pointer;
+    font-size:10px; line-height:1; padding:0; opacity:0; transition:opacity .12s;
+  }
+  .thumb:hover .thumb-del, .thumb:focus-within .thumb-del{ opacity:1; }
+  .thumb-del:hover{ background:#c0392b; }
   .thumb-more{color:var(--text-faint); font:10px var(--font-mono); padding:0 5px;}
   .canvas-stage.swipe-ready{touch-action:pan-y;}
   .bulk-note{margin-top:-2px;}
@@ -177,6 +186,7 @@
     .multi-nav .nav-arrow{width:40px;height:40px;}
     .thumbnail-strip{max-width:88%; bottom:8px;}
     .thumb{width:44px; height:36px;}
+    .thumb-del{ opacity:1; width:16px; height:16px; font-size:11px; }
     .icon-btn.compact, .header-edit .icon-btn{min-width:38px; min-height:38px;}
   }
   @media(max-width:560px){
@@ -606,7 +616,7 @@
 
 <div class="app">
   <header class="topbar">
-    <div class="brand"><span class="dot">◆</span>IMG29<span class="tagline">// A free online image editor. Edit photos directly in your browser.</span></div>
+    <div class="brand"><span class="dot">◆</span>IMG29<span class="tagline">// local image editor — nothing saved</span></div>
     <div class="topbar-actions">
       <div class="nav-group">
         <button class="icon-btn compact" id="prevImageBtn" title="Previous image"></button>
@@ -1492,19 +1502,56 @@
   function renderThumbnailStrip(){
     thumbnailStrip.innerHTML = '';
     imageItems.forEach((item, index)=>{
-      const btn = document.createElement('button');
-      btn.className = 'thumb' + (index === activeImageIndex ? ' active' : '');
-      btn.title = item.name || `Image ${index + 1}`;
-      btn.type = 'button';
+      const thumb = document.createElement('div');
+      thumb.className = 'thumb' + (index === activeImageIndex ? ' active' : '');
+      thumb.title = item.name || `Image ${index + 1}`;
+      thumb.setAttribute('role', 'button');
+      thumb.tabIndex = 0;
 
       const img = document.createElement('img');
       img.alt = '';
       img.src = item.thumbnail || item.dataURL;
-      btn.appendChild(img);
-      btn.addEventListener('click', ()=> switchToImage(index));
-      thumbnailStrip.appendChild(btn);
+      thumb.appendChild(img);
+
+      const delBtn = document.createElement('button');
+      delBtn.type = 'button';
+      delBtn.className = 'thumb-del';
+      delBtn.innerHTML = '&times;';
+      delBtn.title = 'Remove this image';
+      delBtn.addEventListener('click', (e)=>{
+        e.stopPropagation();
+        removeImageAt(index);
+      });
+      thumb.appendChild(delBtn);
+
+      thumb.addEventListener('click', ()=> switchToImage(index));
+      thumb.addEventListener('keydown', (e)=>{
+        if(e.key === 'Enter' || e.key === ' '){ e.preventDefault(); switchToImage(index); }
+      });
+      thumbnailStrip.appendChild(thumb);
     });
     updateImageControls();
+  }
+
+  function removeImageAt(index){
+    if(index < 0 || index >= imageItems.length) return;
+    const removingActive = index === activeImageIndex;
+    imageItems.splice(index, 1);
+
+    if(!imageItems.length){
+      clearWorkspace();
+      toast('Image removed');
+      return;
+    }
+
+    if(removingActive){
+      const nextIndex = Math.min(index, imageItems.length - 1);
+      loadItemIntoEditor(imageItems[nextIndex], nextIndex);
+    }else{
+      if(index < activeImageIndex) activeImageIndex -= 1;
+      renderThumbnailStrip();
+    }
+    toast('Image removed');
   }
 
   function loadItemIntoEditor(item, index){
