@@ -242,7 +242,7 @@
   .zoom-controls .zoom-label:hover{ color:var(--accent); }
   .zoom-controls .sep{ width:1px; height:18px; background:var(--border); margin:0 3px; }
   .canvas-wrap.zoomed{ cursor:grab; touch-action:none; }
-  .canvas-wrap.zoomed.panning{ cursor:grabbing; }
+  .canvas-wrap.zoomed.panning{ cursor:grabbing; transition:none; }
   @media(max-width:900px){
     .zoom-controls{ right:8px; bottom:8px; }
   }
@@ -949,7 +949,7 @@
   const canvasWrap = document.getElementById('canvasWrap');
   const mainCanvas = document.getElementById('mainCanvas');
   const overlayCanvas = document.getElementById('overlayCanvas');
-  const ctx = mainCanvas.getContext('2d');
+  const ctx = mainCanvas.getContext('2d', { alpha:false }); // always fully-opaque photo pixels — skip alpha compositing
   const octx = overlayCanvas.getContext('2d');
   const stageInfo = document.getElementById('stageInfo');
   const toastEl = document.getElementById('toast');
@@ -1096,7 +1096,7 @@
   const HISTORY_CAP = 30;
 
   let baseCanvas = document.createElement('canvas');
-  let baseCtx = baseCanvas.getContext('2d');
+  let baseCtx = baseCanvas.getContext('2d', { alpha:false });
   let hasImage = false;
 
   // Multi-image workspace. Each item stores its original source and its current editor canvas.
@@ -1156,6 +1156,21 @@
     mirrorToPip();
   }
 
+  // Coalesces bursts of render() requests (e.g. dragging a filter slider,
+  // which can fire many 'input' events per second) into at most one actual
+  // canvas redraw per animation frame — the expensive part is the filter
+  // recompute + full-image redraw, not the request itself, so this is what
+  // actually saves the work rather than just deferring it.
+  let renderQueued = false;
+  function scheduleRender(){
+    if(renderQueued) return;
+    renderQueued = true;
+    requestAnimationFrame(()=>{
+      renderQueued = false;
+      render();
+    });
+  }
+
   function setBase(canvasSrc){
     baseCanvas.width = canvasSrc.width;
     baseCanvas.height = canvasSrc.height;
@@ -1184,7 +1199,7 @@
     tctx.filter = filterString(filterState);
     tctx.drawImage(baseCanvas, 0, 0);
     baseCanvas = tmp;
-    baseCtx = baseCanvas.getContext('2d');
+    baseCtx = baseCanvas.getContext('2d', { alpha:false });
     resetFilterUI(false);
     render();
   }
@@ -1208,7 +1223,7 @@
     img.onload = ()=>{
       baseCanvas = document.createElement('canvas');
       baseCanvas.width = img.width; baseCanvas.height = img.height;
-      baseCtx = baseCanvas.getContext('2d');
+      baseCtx = baseCanvas.getContext('2d', { alpha:false });
       baseCtx.drawImage(img,0,0);
       mainCanvas.width = baseCanvas.width;
       mainCanvas.height = baseCanvas.height;
@@ -1902,13 +1917,27 @@
     }
   });
 
+  // The crop overlay redraw fills the entire canvas (at full image
+  // resolution) every call — coalescing to one redraw per animation frame
+  // avoids doing that dozens of extra times per second on a fast mouse.
+  let cropOverlayQueued = false;
+  function scheduleCropOverlay(rect){
+    cropRect = rect;
+    if(cropOverlayQueued) return;
+    cropOverlayQueued = true;
+    requestAnimationFrame(()=>{
+      cropOverlayQueued = false;
+      if(mode==='crop' && cropRect) drawCropOverlay(cropRect);
+    });
+  }
+
   overlayCanvas.addEventListener('pointermove', (e)=>{
     if(!hasImage) return;
     if(mode==='crop' && cropDragStart){
       const p = canvasCoords(e);
-      cropRect = normRect(cropDragStart, p);
-      drawCropOverlay(cropRect);
-      cropApplyBtn.disabled = !(cropRect.w>2 && cropRect.h>2);
+      const rect = normRect(cropDragStart, p);
+      scheduleCropOverlay(rect);
+      cropApplyBtn.disabled = !(rect.w>2 && rect.h>2);
     } else if(mode==='draw' && drawing){
       const p = canvasCoords(e);
       octx.beginPath();
@@ -1970,7 +1999,7 @@
     s.el.addEventListener('input', ()=>{
       filterState[s.key] = Number(s.el.value);
       s.val.textContent = s.el.value;
-      render();
+      scheduleRender();
     });
   });
   applyAdjustBtn.addEventListener('click', ()=>{
